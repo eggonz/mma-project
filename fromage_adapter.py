@@ -107,3 +107,4 @@ class FromageModel:
     emb_matrix = emb_matrix / emb_matrix.norm(dim=1, keepdim=True)
     emb_matrix = logit_scale * emb_matrix
     self.model.emb_matrix = emb_matrix
+>>>>>>> Stashed changes
