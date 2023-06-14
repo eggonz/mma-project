@@ -1,5 +1,11 @@
 import numpy as np 
 import pickle
+import pandas as pd 
+import torch 
+import sys
+sys.path.append("./fromage")
+from fromage import models
+from fromage import utils
 
 class FromageModel:
   '''
@@ -107,4 +113,11 @@ class FromageModel:
     emb_matrix = emb_matrix / emb_matrix.norm(dim=1, keepdim=True)
     emb_matrix = logit_scale * emb_matrix
     self.model.emb_matrix = emb_matrix
->>>>>>> Stashed changes
+
+if __name__ == "__main__":
+    model_dir = './fromage/fromage_model/'
+    model = models.load_fromage(model_dir)
+    path_to_embeddings = "./embeddings" 
+    path_to_images = "./images"
+    adapter = FromageModel(model, path_to_embeddings, path_to_images)
+    print("Loaded the fromage model!")
