@@ -33,6 +33,7 @@ def _compute_embeddings_from_images(path_to_images):
           pixel_values = utils.get_pixel_values_for_model(model.model.feature_extractor, p)
           pixel_values = pixel_values.to(device=model.model.logit_scale.device, dtype=model.model.logit_scale.dtype)
           pixel_values = pixel_values[None, ...]
+          print(pixel_values.dtype)
           visual_embs = model.model.get_visual_embs(pixel_values, mode='retrieval')
           embeddings['embeddings'].append(visual_embs)
           embeddings['paths'].append(image_path)
