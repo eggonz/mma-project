@@ -20,13 +20,13 @@ def get_image_from_jpeg(path):
 
 
 
-def _compute_embeddings_from_images(args, path_to_images):
-    model_dir = '../fromage/fromage_model/'
+def _compute_embeddings_from_images(path_to_images):
+    model_dir = './fromage/fromage_model/'
     # Load the model
     model = models.load_fromage(model_dir)
     embeddings = {'embeddings': [], 'paths': []}
     # Open the json file
-    image_paths = glob.glob("*.jpeg", root_dir = path_to_images)
+    image_paths = glob.glob(path_to_images + "/*.jpeg")
     for image_path in image_paths:
           print(image_path)
           p = get_image_from_jpeg(path=image_path)
@@ -35,6 +35,7 @@ def _compute_embeddings_from_images(args, path_to_images):
           pixel_values = pixel_values[None, ...]
           visual_embs = model.model.get_visual_embs(pixel_values, mode='retrieval')
           embeddings['embeddings'].append(visual_embs)
+          embeddings['paths'].append(image_path)
           # This means that we will run the model from the /src directory!!
 
-_compute_embeddings_from_images(None)
+_compute_embeddings_from_images('/content/mma-project/funda/42194016')
