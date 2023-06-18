@@ -57,9 +57,8 @@ class FromageModel(nn.Module):
       with init_empty_weights():
         model = AutoModelForCausalLM.from_config(config)
       device_map = infer_auto_device_map(model, no_split_module_classes=["OPTDecoderLayer"])
-      device_map["model.decoder.layers.37"] = "cpu"
       self.lm = AutoModelForCausalLM.from_pretrained(
-      opt_version, device_map=device_map)
+      opt_version, device_map=device_map, torch_dtype=torch.bfloat16)
     else:
       raise NotImplementedError
 
@@ -81,7 +80,7 @@ class FromageModel(nn.Module):
 
     print("Restoring pretrained weights for the visual model.")
     if 'clip' in visual_encoder:
-      self.visual_model = CLIPVisionModel.from_pretrained(visual_encoder)
+      self.visual_model = CLIPVisionModel.from_pretrained(visual_encoder,torch_dtype=torch.bfloat16)
 
     else:
       self.visual_model = AutoModel.from_pretrained(visual_encoder)
@@ -659,6 +658,8 @@ def load_fromage_for_embeddings(model_dir: str) -> Fromage:
   # Initialize model for inference.
   model = Fromage(tokenizer, args, path_array=[], emb_matrix=[])
   model = model.eval()
+  model = model.bfloat16()
+  model = model.cuda()
   # Load pretrained linear mappings and [RET] embeddings.
   checkpoint = torch.load(model_ckpt_path)
   model.load_state_dict(checkpoint['state_dict'], strict=False)
@@ -713,8 +714,8 @@ def load_fromage(model_dir: str) -> Fromage:
   # Initialize model for inference.
   model = Fromage(tokenizer, args, path_array=path_array, emb_matrix=emb_matrix)
   model = model.eval()
-  # model = model.bfloat16()
-  # model = model.cuda()
+  model = model.bfloat16()
+  model = model.cuda()
 
   # Load pretrained linear mappings and [RET] embeddings.
   checkpoint = torch.load(model_ckpt_path)
