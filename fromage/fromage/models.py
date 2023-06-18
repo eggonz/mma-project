@@ -550,11 +550,12 @@ class Fromage(nn.Module):
     # Find up to max_num_rets [RET] tokens, and their corresponding scores.
     all_ret_idx = [i for i, x in enumerate(generated_ids[0, :] == self.model.retrieval_token_idx) if x][:max_num_rets]
     seen_image_idx = []  # Avoid showing the same image multiple times.
-
+    return_idx = []
     last_ret_idx = 0
     if len(all_ret_idx) == 0:
       # No [RET] tokens.
       caption = self.model.tokenizer.batch_decode(generated_ids, skip_special_tokens=True)[0]
+      print(caption)
       return_outputs.append(utils.truncate_caption(caption))
     else:
       for ret_idx in all_ret_idx:
@@ -574,6 +575,7 @@ class Fromage(nn.Module):
             seen_image_idx.append(img_idx)
             img = utils.get_image_from_url(self.path_array[img_idx])
             image_outputs.append(img)
+            return_idx.append(self.path_array[img_idx])
             if len(image_outputs) == max_img_per_ret:
               break
           except UnidentifiedImageError:
@@ -584,7 +586,7 @@ class Fromage(nn.Module):
         return_outputs.append(utils.truncate_caption(caption) + ' [RET]')
         return_outputs.append(image_outputs)
 
-    return return_outputs
+    return return_outputs, return_idx
 
   def get_log_lik_scores(
     self, prompts: List):
@@ -693,7 +695,6 @@ def load_fromage(model_dir: str) -> Fromage:
         emb_matrix.append(train_embs_data['embeddings'])
 
   emb_matrix = np.concatenate(emb_matrix[0], axis=0)
-
   # Number of paths should be equal to number of embeddings.
   assert len(path_array) == emb_matrix.shape[0], (len(path_array), emb_matrix.shape[0])
 

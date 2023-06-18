@@ -29,10 +29,10 @@ tensorboard-data-server==0.7.0
 tensorboard-plugin-wit==1.8.1
 tokenizers==0.12.1
 tomli==2.0.1
-torch==1.11.0
 torchaudio==0.11.0
 torchmetrics==0.9.3
 torchvision==0.12.0
+torch==2.0.1
 tqdm==4.64.1
 transformers==4.21.3
 typing_extensions==4.4.0
