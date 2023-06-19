@@ -11,14 +11,14 @@ class FundaDataset:
         self._load_df(csv_path)
         self._format_df(images_path)
 
-    def _load_df(self, jsonlines_path: str):
+    def _load_df(self, jsonlines_path: str) -> None:
         """
         Loads dataframe from a jsonlines file. Sets the index to be `funda_identifier`
         """
         self.df = pd.read_json(jsonlines_path, lines=True)
         self.df.set_index('funda_identifier', inplace=True)
 
-    def _format_df(self, images_root):
+    def _format_df(self, images_root: str) -> None:
         """
         Performs formatting on the dataframe. This includes:
         - appending the images root to the images paths
@@ -56,7 +56,7 @@ class FundaDataset:
             return float(x['lat']), float(x['lon'])
         self.df['geolocation'] = self.df['geolocation'].apply(geolocation_as_coord)
 
-    def get_images(self, funda_id: int):
+    def get_images(self, funda_id: int) -> list[Image.Image]:
         """
         Get the PIL.Images for a house with a given funda_id
         The images are returned as a list of PIL.Images
@@ -66,7 +66,7 @@ class FundaDataset:
         images = [Image.open(img) for img in images]
         return images
 
-    def get_coords(self, funda_id: int):
+    def get_coords(self, funda_id: int) -> tuple[float, float]:
         """
         Get the coordinates for a house with a given funda_id
         The output is a tuple of two floats (lat, lon)
