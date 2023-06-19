@@ -181,18 +181,17 @@ class FromageModel:
         n_components=n_components,
         metric=metric
     )
-    print(self.model.emb_matrix.shape)
-    u = fit.fit_transform(self.model.emb_matrix.float().cpu().numpy())
+    u = fit.fit_transform(torch.squeeze(self.model.emb_matrix).float().cpu().numpy())
     fig = plt.figure()
     if n_components == 1:
         ax = fig.add_subplot(111)
-        ax.scatter(u[:,0], range(len(u)), c=data)
+        ax.scatter(u[:,0], range(len(u)))
     if n_components == 2:
         ax = fig.add_subplot(111)
-        ax.scatter(u[:,0], u[:,1], c=data)
+        ax.scatter(u[:,0], u[:,1])
     if n_components == 3:
         ax = fig.add_subplot(111, projection='3d')
-        ax.scatter(u[:,0], u[:,1], u[:,2], c=data, s=100)
+        ax.scatter(u[:,0], u[:,1], u[:,2], s=100)
     plt.title(title, fontsize=18)
     return fig
 
@@ -207,10 +206,10 @@ if __name__ == "__main__":
     output = adapter.prompt("Similar images", utils.get_image_from_url("/content/mma-project/funda/42194096/image1.jpeg"))
     print(output)
     fig = adapter.draw_umap()
-    fig.save_fig("All_embeddings.png")
+    fig.savefig("All_embeddings.png")
     data_dummy_filter = data = {'id': [42194016, 42194023]}
     adapter.update_embeddings(pd.DataFrame.from_dict(data_dummy_filter))
     output = adapter.prompt("Similar images", utils.get_image_from_url("/content/mma-project/funda/42194096/image1.jpeg"))
     print(output)
     fig = adapter.draw_umap()
-    fig.save_fig("Reduced_embeddings.png")
+    fig.savefig("Reduced_embeddings.png")
