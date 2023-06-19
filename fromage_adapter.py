@@ -13,6 +13,7 @@ import PIL
 from PIL import Image
 import matplotlib.pyplot as plt 
 from typing import List, Union
+import umap
 
 class FromageModel:
   '''
@@ -28,6 +29,7 @@ class FromageModel:
     self.model = model
     self.path_to_embeddings = path_to_embeddings
     self.path_to_images = path_to_images
+    self.reducer = umap.UMAP()
 
   def _load_embeddings(self):
     '''
@@ -118,11 +120,12 @@ class FromageModel:
     path_array,emb_matrix = self._load_embeddings()
     self.model.path_array = path_array
     # Normalize the embeddings
-    logit_scale = self.model.model.logit_scale.exp()
-    emb_matrix = torch.tensor(emb_matrix, dtype=logit_scale.dtype).to(logit_scale.device)
-    emb_matrix = emb_matrix / emb_matrix.norm(dim=1, keepdim=True)
-    emb_matrix = logit_scale * emb_matrix
-    self.model.emb_matrix = emb_matrix
+    with torch.no_grad():
+      logit_scale = self.model.model.logit_scale.exp()
+      emb_matrix = torch.tensor(emb_matrix, dtype=logit_scale.dtype).to(logit_scale.device)
+      emb_matrix = emb_matrix / emb_matrix.norm(dim=1, keepdim=True)
+      emb_matrix = logit_scale * emb_matrix
+      self.model.emb_matrix = emb_matrix
 
   def update_embeddings(self, dataframe: pd.DataFrame):
     '''
@@ -137,11 +140,12 @@ class FromageModel:
     path_array,emb_matrix = self._compute_embeddings_from_id(dataframe['id'])
     self.model.path_array = path_array
     # Normalize the embeddings
-    logit_scale = self.model.model.logit_scale.exp()
-    emb_matrix = torch.tensor(emb_matrix, dtype=logit_scale.dtype).to(logit_scale.device)
-    emb_matrix = emb_matrix / emb_matrix.norm(dim=1, keepdim=True)
-    emb_matrix = logit_scale * emb_matrix
-    self.model.emb_matrix = emb_matrix
+    with torch.no_grad():
+      logit_scale = self.model.model.logit_scale.exp()
+      emb_matrix = torch.tensor(emb_matrix, dtype=logit_scale.dtype).to(logit_scale.device)
+      emb_matrix = emb_matrix / emb_matrix.norm(dim=1, keepdim=True)
+      emb_matrix = logit_scale * emb_matrix
+      self.model.emb_matrix = emb_matrix
 
   def prompt(self, text:str, image: Image.Image, nr_of_retrieval: int = 1, debug = False) -> List[Union[Image.Image, int]]:
     '''
@@ -170,10 +174,27 @@ class FromageModel:
         returns.append(output)
     return list(zip(returns, ids))
 
-  def umap(self):
-    '''
-    Calculate the umap of the fromage embeddings.
-    '''
+  def draw_umap(self, n_neighbors=15, min_dist=0.1, n_components=2, metric='euclidean', title='UMap Visualization of Fromage dataspace'):
+    fit = umap.UMAP(
+        n_neighbors=n_neighbors,
+        min_dist=min_dist,
+        n_components=n_components,
+        metric=metric
+    )
+    print(self.model.emb_matrix.shape)
+    u = fit.fit_transform(self.model.emb_matrix.float().cpu().numpy())
+    fig = plt.figure()
+    if n_components == 1:
+        ax = fig.add_subplot(111)
+        ax.scatter(u[:,0], range(len(u)), c=data)
+    if n_components == 2:
+        ax = fig.add_subplot(111)
+        ax.scatter(u[:,0], u[:,1], c=data)
+    if n_components == 3:
+        ax = fig.add_subplot(111, projection='3d')
+        ax.scatter(u[:,0], u[:,1], u[:,2], c=data, s=100)
+    plt.title(title, fontsize=18)
+    return fig
 
 if __name__ == "__main__":
     model_dir = '/content/mma-project/fromage/fromage_model'
@@ -185,7 +206,11 @@ if __name__ == "__main__":
     adapter.refresh_embeddings()
     output = adapter.prompt("Similar images", utils.get_image_from_url("/content/mma-project/funda/42194096/image1.jpeg"))
     print(output)
+    fig = adapter.draw_umap()
+    fig.save_fig("All_embeddings.png")
     data_dummy_filter = data = {'id': [42194016, 42194023]}
     adapter.update_embeddings(pd.DataFrame.from_dict(data_dummy_filter))
     output = adapter.prompt("Similar images", utils.get_image_from_url("/content/mma-project/funda/42194096/image1.jpeg"))
     print(output)
+    fig = adapter.draw_umap()
+    fig.save_fig("Reduced_embeddings.png")
