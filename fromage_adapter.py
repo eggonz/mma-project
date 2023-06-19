@@ -170,7 +170,10 @@ class FromageModel:
         returns.append(output)
     return list(zip(returns, ids))
 
-
+  def umap(self):
+    '''
+    Calculate the umap of the fromage embeddings.
+    '''
 
 if __name__ == "__main__":
     model_dir = '/content/mma-project/fromage/fromage_model'
