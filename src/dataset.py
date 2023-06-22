@@ -15,16 +15,19 @@ class FundaEmbeddings:
         df = pd.DataFrame(data)
 
         # TODO tmp: until we fix df format and relative paths
-        def fn(x):
-            return os.path.join(*x.split('/')[-2:])
-        df['paths'] = df['paths'].apply(fn)
-        df.set_index('paths', inplace=True)
+        # def fn(x):
+        #     return os.path.join(*x.split('/')[-2:])
+        # df['paths'] = df['paths'].apply(fn)
+        # df.set_index('paths', inplace=True)
 
         self.embeddings = df
 
     def __getitem__(self, image_path: str) -> np.ndarray:
         emb = self.embeddings.loc[image_path].values[0]
         return np.array(emb)
+
+    def __len__(self) -> int:
+        return len(self.embeddings)
 
 
 class FundaDataset:
