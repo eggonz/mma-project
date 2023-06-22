@@ -1,20 +1,18 @@
-import numpy as np 
-import pickle
-import pandas as pd 
-import torch 
-import sys
-sys.path.append("./fromage")
-from fromage import models
-from fromage import utils
-import os 
 import glob
-import pickle as pkl 
-import PIL
+import pickle
+import pickle as pkl
+from typing import List, Union
+
+import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
+import torch
 from PIL import Image
 
-import matplotlib.pyplot as plt 
-from typing import List, Union
 import umap_utils
+from fromage import models
+from fromage import utils
+
 
 class FromageModel:
   '''
