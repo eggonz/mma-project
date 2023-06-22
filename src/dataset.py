@@ -1,5 +1,4 @@
 import os
-import pickle
 import re
 
 import matplotlib.pyplot as plt
@@ -10,21 +9,34 @@ from PIL import Image
 
 class FundaEmbeddings:
     def __init__(self, embeddings_path: str):
-        with open(embeddings_path, 'rb') as f:
-            data = pickle.load(f)
-        df = pd.DataFrame(data)
+        """
+        This class is used to load the embeddings from a pickle file and to retrieve them
+        The pickle file should contain a dataframe with the following columns:
+        - embeddings: the embeddings
+        - umap_x: the x coordinate of the umap projection (optional)
+        - umap_y: the y coordinate of the umap projection (optional)
+        """
+        df = pd.read_pickle(embeddings_path)
+        self.embeddings = df['embeddings']
+        if 'umap_x' in df.columns:
+            self.umap_x = df['umap_x']
+            self.umap_y = df['umap_y']
 
-        # TODO tmp: until we fix df format and relative paths
-        # def fn(x):
-        #     return os.path.join(*x.split('/')[-2:])
-        # df['paths'] = df['paths'].apply(fn)
-        # df.set_index('paths', inplace=True)
+    def get_embedding(self, image_path: str) -> np.ndarray:
+        """
+        Returns the embedding of the image at the given path
+        """
+        return self.embeddings.loc[image_path].values[0]
 
-        self.embeddings = df
-
-    def __getitem__(self, image_path: str) -> np.ndarray:
-        emb = self.embeddings.loc[image_path].values[0]
-        return np.array(emb)
+    def get_umap(self, image_path: str) -> tuple[float, float]:
+        """
+        Returns the umap coordinates of the image at the given path
+        """
+        if 'umap_x' not in self.__dict__:
+            raise ValueError('UMap not computed')
+        x = self.umap_x.loc[image_path].values[0]
+        y = self.umap_y.loc[image_path].values[0]
+        return x, y
 
     def __len__(self) -> int:
         return len(self.embeddings)
@@ -42,6 +54,12 @@ class FundaDataset:
         """
         self.df = pd.read_json(jsonlines_path, lines=True)
         self.df.set_index('funda_identifier', inplace=True)
+
+    def save_as_csv(self, path: str) -> None:
+        """
+        Saves the dataframe as a csv file
+        """
+        self.df.to_csv(path)
 
     def _format_df(self) -> None:
         """
@@ -101,7 +119,8 @@ class FundaDataset:
 
 if __name__ == '__main__':
     # TEST CODE
-    fd = FundaDataset('../data/Funda/Funda/ads.jsonlines', 'funda')
+    fd = FundaDataset('../data/Funda/Funda/ads.jsonlines', '../data/Funda/images')
+    fd.save_as_csv('../data/Funda/Funda/ads.csv')
     print(fd.df.head())
     print()
     print('VERIFY FORMATTING')
@@ -125,10 +144,11 @@ if __name__ == '__main__':
     plt.show()
 
     print('VERIFY EMBEDDINGS')
-    emb = FundaEmbeddings('../data/embeddings/funda_sample.pkl')
-    print(emb.embeddings.head())
-    print(emb['42194072/image1.jpeg'])
-    print(type(emb['42194072/image1.jpeg']))
-    print(emb['42194072/image1.jpeg'].shape)
+    fe = FundaEmbeddings('../data/embeddings/funda_sample.pkl')
+    print(len(fe))
+    emb = fe.get_embedding('42194072/image1.jpeg')
+    print(type(emb), emb.shape)
+    ux, uy = fe.get_umap('42194072/image1.jpeg')
+    print(type(ux), type(uy))
 
 

@@ -11,9 +11,10 @@ import glob
 import pickle as pkl 
 import PIL
 from PIL import Image
+
 import matplotlib.pyplot as plt 
 from typing import List, Union
-import umap
+import umap_utils
 
 class FromageModel:
   '''
@@ -29,7 +30,34 @@ class FromageModel:
     self.model = model
     self.path_to_embeddings = path_to_embeddings
     self.path_to_images = path_to_images
-    self.reducer = umap.UMAP()
+
+
+  @staticmethod
+  def _display_interleaved_outputs(model_outputs, one_img_per_ret=True):
+    for output in model_outputs:
+        if type(output) == str:
+            print(output)
+        elif type(output) == list:
+            if one_img_per_ret:
+                plt.figure(figsize=(3, 3))
+                plt.imshow(np.array(output[0]))
+            else:
+                fig, ax = plt.subplots(1, len(output), figsize=(3 * len(output), 3))
+                for i, image in enumerate(output):
+                    image = np.array(image)
+                    ax[i].imshow(image)
+                    ax[i].set_title(f'Retrieval #{i+1}')
+            plt.show()
+        elif type(output) == Image.Image:
+            plt.figure(figsize=(3, 3))
+            plt.imshow(np.array(output))
+            plt.show()
+
+
+            
+  def _get_embedding_from_image_path(self, image_path):
+    index = self.model.path_array.index(image_path)
+    return self.model.emb_matrix[index]
 
   def _load_embeddings(self):
     '''
@@ -49,7 +77,42 @@ class FromageModel:
     assert len(path_array) == emb_matrix.shape[0], (len(path_array), emb_matrix.shape[0])
     return path_array,emb_matrix
 
-  def _update_embeddings_from_id(self, ids):
+  def _filters_embeddings_from_id(self, ids):
+    '''
+    Utility function to update embeddings from the  ids extracted from the dataframe.
+    This function initialized embeddings dictionary as fromage models expects and
+    embeds all the images corresponding to the ids retrieved from the data.
+    '''
+    # This is used for passing the ids data to embeddings, then we can retrive the images for the id
+    # and embed them.
+    embeddings = {'embeddings': [], 'paths': []}
+    # Open the json file
+    for id_ in ids:
+      image_paths = glob.glob(path_to_images + f"/{id_}/*.jpeg", recursive = True)
+      for image_path in image_paths:
+        visual_embs = self._get_embedding_from_image_path(image_path)
+        embeddings['embeddings'].append(visual_embs)
+        embeddings['paths'].append(image_path)
+    with open('/content/mma-project/fromage/fromage_model/embeddings/funda_sample_updated.pkl', 'wb') as f:
+          pickle.dump(embeddings, f)
+    return embeddings
+
+  def _filter_embeddings_from_id(self, ids):
+    '''
+    This method returns embedding matrix and path array to initialize the fromage models' embeddings matrix
+    and path array.
+    '''
+    train_embs_data = self._filters_embeddings_from_id(ids)
+    path_array = []
+    emb_matrix = []
+    # These were precomputed for all funda dataset images.
+    path_array.extend(train_embs_data['paths'])
+    emb_matrix.append(train_embs_data['embeddings'])
+    emb_matrix = np.concatenate(emb_matrix[0], axis=0)
+    assert len(path_array) == emb_matrix.shape[0], (len(path_array), emb_matrix.shape[0])
+    return path_array, emb_matrix
+  
+  def _updates_embeddings_from_id(self, ids):
     '''
     Utility function to update embeddings from the  ids extracted from the dataframe.
     This function initialized embeddings dictionary as fromage models expects and
@@ -75,12 +138,12 @@ class FromageModel:
           pickle.dump(embeddings, f)
     return embeddings
 
-  def _compute_embeddings_from_id(self, ids):
+  def _update_embeddings_from_id(self, ids):
     '''
     This method returns embedding matrix and path array to initialize the fromage models' embeddings matrix
     and path array.
     '''
-    train_embs_data = self._update_embeddings_from_id(ids)
+    train_embs_data = self._updates_embeddings_from_id(ids)
     path_array = []
     emb_matrix = []
     # These were precomputed for all funda dataset images.
@@ -89,27 +152,6 @@ class FromageModel:
     emb_matrix = np.concatenate(emb_matrix[0], axis=0)
     assert len(path_array) == emb_matrix.shape[0], (len(path_array), emb_matrix.shape[0])
     return path_array, emb_matrix
-
-  @staticmethod
-  def _display_interleaved_outputs(model_outputs, one_img_per_ret=True):
-    for output in model_outputs:
-        if type(output) == str:
-            print(output)
-        elif type(output) == list:
-            if one_img_per_ret:
-                plt.figure(figsize=(3, 3))
-                plt.imshow(np.array(output[0]))
-            else:
-                fig, ax = plt.subplots(1, len(output), figsize=(3 * len(output), 3))
-                for i, image in enumerate(output):
-                    image = np.array(image)
-                    ax[i].imshow(image)
-                    ax[i].set_title(f'Retrieval #{i+1}')
-            plt.show()
-        elif type(output) == Image.Image:
-            plt.figure(figsize=(3, 3))
-            plt.imshow(np.array(output))
-            plt.show()
           
   def refresh_embeddings(self):
     '''
@@ -127,19 +169,26 @@ class FromageModel:
       emb_matrix = logit_scale * emb_matrix
       self.model.emb_matrix = emb_matrix
 
-  def update_embeddings(self, dataframe: pd.DataFrame):
+  def filter_embeddings(self, dataframe: pd.DataFrame):
     '''
-    Update the embeddings of the fromage model. We re-write everything because
-    it is faster due to L1 cache retrieval. This method goes through the data and computes
-    the embeddings of the images again. In the future we can replace this with a method that only fetches
-    the embeddings of the ids from a database because those embeddings in principle should never be different.
+    Fetchesbthe embeddings of the ids from a database and creates a new embeddings matrix.
     '''
     # dataframe is assumed to be the funda dataset, but filtered.
     assert self.model.emb_matrix != None and self.model.path_array != None, "Please initialize the embeddings first"
     # Load the pre-computed embeddings and paths
-    path_array,emb_matrix = self._compute_embeddings_from_id(dataframe['id'])
+    path_array,emb_matrix = self._filter_embeddings_from_id(dataframe['id'])
     self.model.path_array = path_array
-    # Normalize the embeddings
+    self.model.emb_matrix = emb_matrix
+  
+  def update_embeddings(self, dataframe: pd.DataFrame):
+    '''
+    Fetchesbthe embeddings of the ids from a database and creates a new embeddings matrix.
+    '''
+    # dataframe is assumed to be the funda dataset, but filtered.
+    assert self.model.emb_matrix != None and self.model.path_array != None, "Please initialize the embeddings first"
+    # Load the pre-computed embeddings and paths
+    path_array,emb_matrix = self._update_embeddings_from_id(dataframe['id'])
+    self.model.path_array = path_array
     with torch.no_grad():
       logit_scale = self.model.model.logit_scale.exp()
       emb_matrix = torch.tensor(emb_matrix, dtype=logit_scale.dtype).to(logit_scale.device)
@@ -174,42 +223,28 @@ class FromageModel:
         returns.append(output)
     return list(zip(returns, ids))
 
-  def draw_umap(self, n_neighbors=15, min_dist=0.1, n_components=2, metric='euclidean', title='UMap Visualization of Fromage dataspace'):
-    fit = umap.UMAP(
-        n_neighbors=n_neighbors,
-        min_dist=min_dist,
-        n_components=n_components,
-        metric=metric
-    )
-    u = fit.fit_transform(torch.squeeze(self.model.emb_matrix).float().cpu().numpy())
-    fig = plt.figure()
-    if n_components == 1:
-        ax = fig.add_subplot(111)
-        ax.scatter(u[:,0], range(len(u)))
-    if n_components == 2:
-        ax = fig.add_subplot(111)
-        ax.scatter(u[:,0], u[:,1])
-    if n_components == 3:
-        ax = fig.add_subplot(111, projection='3d')
-        ax.scatter(u[:,0], u[:,1], u[:,2], s=100)
-    plt.title(title, fontsize=18)
-    return fig
 
 if __name__ == "__main__":
     model_dir = '/content/mma-project/fromage/fromage_model'
     model = models.load_fromage_for_embeddings(model_dir)
     path_to_embeddings = "/content/mma-project/fromage/fromage_model/embeddings/funda_sample.pkl" 
     path_to_images = "/content/mma-project/funda"
+
     adapter = FromageModel(model, path_to_embeddings, path_to_images)
     print("Loaded the adapter fromage model!")
+
     adapter.refresh_embeddings()
     output = adapter.prompt("Similar images", utils.get_image_from_url("/content/mma-project/funda/42194096/image1.jpeg"))
     print(output)
-    fig = adapter.draw_umap()
+
+    umap_embeddings = umap_utils.compute_umap(adapter.model.emb_matrix)
+    fig = umap_utils.draw_umap(umap_embeddings)
     fig.savefig("All_embeddings.png")
+
     data_dummy_filter = data = {'id': [42194016, 42194023]}
     adapter.update_embeddings(pd.DataFrame.from_dict(data_dummy_filter))
     output = adapter.prompt("Similar images", utils.get_image_from_url("/content/mma-project/funda/42194096/image1.jpeg"))
     print(output)
-    fig = adapter.draw_umap()
+
+    fig = umap_utils.draw_umap(umap_embeddings)
     fig.savefig("Reduced_embeddings.png")
