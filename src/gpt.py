@@ -19,16 +19,18 @@ prompt = (
     "passed to the pandas DataFrame query method."
 )
 
+
 def get_pandas_query(user_input: str):
     return openai.ChatCompletion.create(
         model="gpt-3.5-turbo",
         messages=[
             {"role": "system", "content": "You are a helpful assistant."},
-            {"role": "user", "content": prompt},
+            {"role": "user", "content": prompt},  # TODO try as system prompt
             {"role": "user", "content": user_input},
         ],
         temperature=0.9,
     )
+
 
 if __name__ == "__main__":
     user_input = "I want a house in Eindhoven with 3 bedrooms"
