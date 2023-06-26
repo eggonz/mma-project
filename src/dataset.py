@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import os
 import re
 
@@ -6,62 +8,108 @@ import numpy as np
 import pandas as pd
 from PIL import Image
 
+import umap_utils
+
 
 class FundaEmbeddings:
-    def __init__(self, embeddings_path: str):
+    def __init__(self, df):
         """
         This class is used to load the embeddings from a pickle file and to retrieve them
+        Use FundaEmbeddings.from_pickle to load the embeddings from a pickle file
+
         The pickle file should contain a dataframe with the following columns:
         - embeddings: the embeddings
         - umap_x: the x coordinate of the umap projection (optional)
         - umap_y: the y coordinate of the umap projection (optional)
         """
+        self.df = df
+
+    def clone(self) -> FundaEmbeddings:
+        """
+        Returns a clone of the current FundaEmbeddings object
+        """
+        return FundaEmbeddings(self.df.copy())
+
+    @classmethod
+    def from_pickle(cls, embeddings_path: str) -> FundaEmbeddings:
+        """
+        Loads a FundaEmbeddings from a pickle file
+        """
         df = pd.read_pickle(embeddings_path)
-        self.embeddings = df['embeddings']
-        if 'umap_x' in df.columns:
-            self.umap_x = df['umap_x']
-            self.umap_y = df['umap_y']
+        return cls(df)
 
     def get_embedding(self, image_path: str) -> np.ndarray:
         """
         Returns the embedding of the image at the given path
         """
-        return self.embeddings.loc[image_path].values[0]
+        return self.df['embeddings'].loc[image_path].values[0]
 
     def get_umap(self, image_path: str) -> tuple[float, float]:
         """
         Returns the umap coordinates of the image at the given path
         """
-        if 'umap_x' not in self.__dict__:
+        if 'umap_x' not in self.df.columns or 'umap_y' not in self.df.columns:
             raise ValueError('UMap not computed')
-        x = self.umap_x.loc[image_path].values[0]
-        y = self.umap_y.loc[image_path].values[0]
+        x = self.df['umap_x'].loc[image_path].values[0]
+        y = self.df['umap_y'].loc[image_path].values[0]
         return x, y
 
     def __len__(self) -> int:
-        return len(self.embeddings)
+        return len(self.df)
+
+    def filter(self, selected_ids: list[int]) -> FundaEmbeddings:
+        """
+        Filters the embeddings using a list of selected ids
+        Returns a new FundaEmbeddings object
+        """
+        def is_selected(x: str) -> bool:
+            """extracts the id from the image path and checks if it is in the selected ids"""
+            return int(x.split('/', maxsplit=1)[0]) in selected_ids
+        idxs = self.df.index.filter(is_selected).values
+        df = self.df.loc[idxs].copy()
+        return FundaEmbeddings(df)
+
+    def recompute_umap(self):
+        umap_embeddings = umap_utils.compute_umap(self.df['embeddings'], n_components=2)
+        self.df['umap_x'] = umap_embeddings[:, 0]
+        self.df['umap_y'] = umap_embeddings[:, 1]
 
 
 class FundaDataset:
-    def __init__(self, jsonlines_path: str, images_dir: str):
+    def __init__(self, df, images_dir):
+        """
+        This class is used to load the dataset from a jsonlines file and to retrieve the data
+        Use FundaDataset.from_jsonlines to load the dataset from a jsonlines file
+        """
+        self.df = df
         self.images_dir = images_dir
-        self._load_df(jsonlines_path)
-        self._format_df()
 
-    def _load_df(self, jsonlines_path: str) -> None:
+    @classmethod
+    def from_jsonlines(cls, jsonlines_path: str, images_dir: str) -> FundaDataset:
+        """
+        Loads a FundaDataset from a jsonlines file
+        """
+        df = cls._load_jsonlines(jsonlines_path)
+        return cls(df, images_dir)
+
+    def clone(self) -> FundaDataset:
+        """
+        Returns a clone of the current FundaDataset object
+        """
+        return FundaDataset(self.df.copy(), self.images_dir)
+
+    @staticmethod
+    def _load_jsonlines(jsonlines_path: str) -> pd.DataFrame:
         """
         Loads dataframe from a jsonlines file. Sets the index to be `funda_identifier`
         """
-        self.df = pd.read_json(jsonlines_path, lines=True)
-        self.df.set_index('funda_identifier', inplace=True)
+        df = pd.read_json(jsonlines_path, lines=True)
+        df.set_index('funda_identifier', inplace=True)
+        FundaDataset._format_df(df)
+        return df
 
-    def save_as_csv(self, path: str) -> None:
-        """
-        Saves the dataframe as a csv file
-        """
-        self.df.to_csv(path)
-
-    def _format_df(self) -> None:
+    @staticmethod
+    def _format_df(dataframe) -> None:
         """
         Performs formatting on the dataframe. This includes:
         - filtering the price
@@ -83,13 +131,21 @@ class FundaDataset:
             # convert to int
             df['price'] = df['price'].astype(int)
             return df
-        self.df = filter_price(self.df)
+        dataframe = filter_price(dataframe)
 
         # geolocation
         def geolocation_as_coord(x):
             """converts the geolocation to a tuple (lat, lon)"""
             return float(x['lat']), float(x['lon'])
-        self.df['geolocation'] = self.df['geolocation'].apply(geolocation_as_coord)
+        dataframe['geolocation'] = dataframe['geolocation'].apply(geolocation_as_coord)
+
+        return dataframe
+
+    def save_as_csv(self, path: str) -> None:
+        """
+        Saves the dataframe as a csv file
+        """
+        self.df.to_csv(path)
 
     def get_images(self, funda_id: int) -> dict[str, Image.Image]:
         """
@@ -115,6 +171,13 @@ class FundaDataset:
         # TODO specify necessary data
         """
         return self.df.loc[funda_id]
+
+    def filter(self, filter_expression: str) -> FundaDataset:
+        """
+        Filters the dataset using a pandas query expression
+        Returns a new FundaDataset object
+        """
+        return FundaDataset(self.df.filter(filter_expression, axis=0), self.images_dir)
 
 
 if __name__ == '__main__':
