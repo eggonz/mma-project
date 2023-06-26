@@ -1,0 +1,54 @@
+#left, #middle, #right {
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+}
+
+#left {
+    width: 20%;
+}
+
+#middle {
+    width: 40%;
+}
+
+#right {
+    width: 40%;
+}
+
+html,
+body {
+  height: 100%;
+  padding: 0;
+  margin: 0;
+  background: #282c34;
+}
+
+#container {
+    display: flex;
+    flex-direction: row;
+    justify-content: space-between;
+    height: 100vh;
+}
+
+.content {
+    height: 100%;
+}
+
+.panel {
+    height: 100%;
+    /* border-color: red;
+    border-width: 2px;
+    border-style: solid; */
+}
+
+#image_container {
+    height: 100%;
+    background-size: contain;
+    background-repeat: no-repeat;
+    background-position: center;
+}
+
+#geomap, #umap {
+    height: 100%;
+}
