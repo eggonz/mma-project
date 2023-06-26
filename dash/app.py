@@ -2,6 +2,8 @@ import json
 
 import pandas as pd
 import plotly.express as px
+import requests
+from PIL import Image
 
 from dash import Dash, Input, Output, callback, ctx, dash_table, dcc, html
 
@@ -133,11 +135,22 @@ app.layout = html.Div([
             id="top_left", className="panel"
         ),
         html.Div(
-            html.Div(className="content"),
+            html.Div([
+                html.Div([
+                    html.H1("Enter image URL here:"),
+                    dcc.Input(
+                        id="image_prompt", type="url", debounce=True,
+                    )
+                ], id="image_inputs"),
+                html.Div(id="image_prompt_vis")
+            ], className="content"),
             id="middle_left", className="panel"
         ),
         html.Div(
-            html.Div(className="content"),
+            html.Div([
+                html.Button('Reset', id='reset_button', n_clicks=0),
+                html.Button('Undo', id='undo_button', n_clicks=0)
+            ], id="buttons", className="content"),
             id="bottom_left", className="panel"
         )
     ], id="left"),
@@ -220,11 +233,52 @@ def on_hover(geo, umap):
     prevent_initial_call=True
 )
 def on_input_prompt(prompt):
-    if prompt is not None:
-        reduce_houses(prompt)
-        return figures["umap"], figures["geomap"]
+    if prompt is None:
+        return
 
+    reduce_houses(prompt)
+    return figures["umap"], figures["geomap"]
 
+@callback(
+    Output("image_prompt_vis", "style"),
+    Input("image_prompt", "value")
+)
+def on_input_image_prompt(url):
+    if url is None:
+        return
+
+    print("New image prompt!")
+
+    r = requests.get(url, stream=True)
+    img = Image.open(r.raw)
+
+    return {
+        "background-image": f"url({url})"
+    }
+
+@callback(
+    [
+        Output("umap", "figure", allow_duplicate=True),
+        Output("geomap", "figure", allow_duplicate=True)
+    ],
+    Input("reset_button", "n_clicks"),
+    prevent_initial_call=True
+)
+def on_button_reset(n_clicks):
+    reset()
+    return figures["umap"], figures["geomap"]
+
+@callback(
+    [
+        Output("umap", "figure", allow_duplicate=True),
+        Output("geomap", "figure", allow_duplicate=True)
+    ],
+    Input("undo_button", "n_clicks"),
+    prevent_initial_call=True
+)
+def on_button_undo(n_clicks):
+    undo()
+    return figures["umap"], figures["geomap"]
 # #
 # --------------- Main ----------------
 # #

@@ -1,4 +1,4 @@
-#left, #middle, #right {
+#left, #middle, #right, #middle_left {
     display: flex;
     flex-direction: column;
     justify-content: space-between;
@@ -42,8 +42,16 @@ body {
     border-style: solid; */
 }
 
-#image_container {
-    height: 100%;
+#image_inputs {
+    height: 20%;
+}
+
+#image_prompt_vis {
+    height: 80%;
+}
+
+#image_container, #image_prompt_vis {
+    width: 100%;
     background-size: contain;
     background-repeat: no-repeat;
     background-position: center;
@@ -51,4 +59,9 @@ body {
 
 #geomap, #umap {
     height: 100%;
+}
+
+h1 {
+    color: white;
+    margin: 0;
 }
