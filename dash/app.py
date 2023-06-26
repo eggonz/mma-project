@@ -54,46 +54,66 @@ def create_umap(data):
 # --------------- Global variables ----------------
 # #
 
-dfs = {
-    "full": df[["funda", "images", "lat", "lon", "city", "price", "living_area_size", "nr_bedrooms", "energy_label"]],
-    "small": None
+df = df[[
+    "funda", "images", "lat", "lon", "city", "price",
+    "living_area_size", "nr_bedrooms", "energy_label"
+]]
+
+state = {
+    "stack": [{"df": df, "prompt": ""}],
+    "active_id": None
 }
 
-def reset():
-    dfs["small"] = dfs["full"].copy()
-
-reset()
-
 figures = {
-    "geomap": create_geomap(dfs["full"]),
-    "umap": create_umap(dfs["full"])
+    "geomap": None,
+    "umap": None
 }
 
 app = Dash(__name__)
 
 # #
-# --------------- Draw colours on the map ----------------
+# --------------- State changing functions ----------------
 # #
 
-def update_geo(idx=None):
+def reduce_houses(prompt):
+    print("run1")
+    if prompt in {p["prompt"] for p in state["stack"]}:
+        return
+    print("run2")
+
+    houses = state["stack"][-1]["df"].query(prompt)
+    state["stack"].append({"df": houses, "prompt": prompt})
+
+    update_maps()
+
+
+def update_maps():
+    houses = state["stack"][-1]["df"]
+
+    figures["geomap"] = create_geomap(houses)
+    figures["umap"] = create_umap(houses)
+
+def update_colors(idx):
     color = [
         ("red" if i == idx else "blue")
-        for i in range(len(dfs["small"]))
+        for i in range(len(state["stack"][-1]["df"]))
     ]
 
-    print(color)
+    figures["geomap"] = figures["geomap"].update_traces(marker=dict(color=color))
+    figures["umap"] = figures["umap"].update_traces(marker=dict(color=color))
 
-    return figures["geomap"].update_traces(marker=dict(color=color))
+def reset():
+    if len(state["stack"]) > 1:
+        state["stack"] = state["stack"][:1]
+        update_maps()
 
-def update_umap(idx=None):
-    color = [
-        ("red" if i == idx else "blue")
-        for i in range(len(dfs["small"]))
-    ]
+def undo():
+    if len(state["stack"]) > 1:
+        state["stack"] = state["stack"][:-1]
+        update_maps()
 
-    print(color)
 
-    return figures["umap"].update_traces(marker=dict(color=color))
+update_maps()
 
 # #
 # --------------- HTML Layout ----------------
@@ -151,7 +171,7 @@ app.layout = html.Div([
         html.Div(
             html.Div(
                 dash_table.DataTable(
-                    dfs["small"].drop(columns="images").to_dict("records"),
+                    state["stack"][-1]["df"].drop(columns="images").to_dict("records"),
                     page_size=19
                 ),
                 className="content"
@@ -166,73 +186,43 @@ app.layout = html.Div([
 # #
 
 @callback(
-    Output("image_container", "style"),
+    [
+        Output("umap", "figure", allow_duplicate=True),
+        Output("geomap", "figure", allow_duplicate=True),
+        Output("image_container", "style")
+    ],
     Input("geomap", "hoverData"),
-    Input("umap", "hoverData")
+    Input("umap", "hoverData"),
+    prevent_initial_call=True
 )
-def on_hover_geomap_show_image(geo, umap):
+def on_hover(geo, umap):
     idx = None
     if geo is not None and ctx.triggered_id == "geomap":
         idx = geo["points"][0]["pointIndex"]
     if umap is not None and ctx.triggered_id == "umap":
         idx = umap["points"][0]["pointIndex"]
-    if idx is None:
-        return None
+
+    print(idx)
+    update_colors(idx=idx)
 
     imgs = df.loc[idx, "images"]
 
-    return {
+    return figures["umap"], figures["geomap"], {
         "background-image": f"url(assets/images/{imgs[0]})"
     }
 
 @callback(
-    Output("umap", "figure"),
-    Input("geomap", "hoverData"),
-    Input("umap", "hoverData"),
-    Input("prompt", "value")
+    [
+        Output("umap", "figure", allow_duplicate=True),
+        Output("geomap", "figure", allow_duplicate=True)
+    ],
+    Input("prompt", "value"),
+    prevent_initial_call=True
 )
-def on_hover_update_umap(geo, umap, prompt):
-    if prompt is not None and ctx.triggered_id == "prompt":
-        dfs["small"] = dfs["small"].query(prompt)
-        figures["umap"] = create_umap(dfs["small"])
-        print("RUNNNN")
-        return figures["umap"]
-
-    if len(dfs["small"]) > 50:
-        return umap
-
-    idx = None
-    if geo is not None and ctx.triggered_id == "geomap":
-        idx = geo["points"][0]["pointIndex"]
-    if umap is not None and ctx.triggered_id == "umap":
-        idx = umap["points"][0]["pointIndex"]
-    print(idx)
-    print(json.dumps(geo, indent=4))
-    return update_umap(idx=idx)
-
-@callback(
-    Output("geomap", "figure"),
-    Input("geomap", "hoverData"),
-    Input("umap", "hoverData"),
-    Input("prompt", "value")
-)
-def on_hover_update_geomap(geo, umap, prompt):
-    if prompt is not None and ctx.triggered_id == "prompt":
-
-        dfs["small"] = dfs["small"].query(prompt)
-        figures["geomap"] = create_geomap(dfs["small"])
-        return figures["geomap"]
-
-    if len(dfs["small"]) > 50:
-        return figures["geomap"]
-
-    idx = None
-    if geo is not None and ctx.triggered_id == "geomap":
-        idx = geo["points"][0]["pointIndex"]
-    if umap is not None and ctx.triggered_id == "umap":
-        idx = umap["points"][0]["pointIndex"]
-    print(idx)
-    return update_geo(idx=idx)
+def on_input_prompt(prompt):
+    if prompt is not None:
+        reduce_houses(prompt)
+        return figures["umap"], figures["geomap"]
 
 
 # #
