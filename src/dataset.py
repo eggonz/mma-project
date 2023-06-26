@@ -108,6 +108,12 @@ class FundaDataset:
         FundaDataset._format_df(df)
         return df
 
+    def save_as_csv(self, path: str) -> None:
+        """
+        Saves the dataframe as a csv file
+        """
+        self.df.to_csv(path)
+
     @staticmethod
     def _format_df(dataframe) -> None:
         """
