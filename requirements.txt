@@ -41,3 +41,4 @@ accelerate==0.20.3
 umap-learn==0.5.3
 git+https://github.com/ildoonet/pytorch-gradual-warmup-lr.git
 openai==0.27.8
+dash==2.11.0
