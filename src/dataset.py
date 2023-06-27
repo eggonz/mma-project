@@ -139,7 +139,81 @@ class FundaDataset:
         - filtering the price
         - converting the geolocation to a tuple
         """
+        def extract_features(df):
+            df = df.drop(index=df.loc[42119366].name) # to be changed later: replace all values with nan instead or translate
 
+            dict_funda = {  'price per square meters':[], 
+                            'vve contribution':[],
+                            'house type':[],
+                            'construction year':[],
+                            'energy label': [],
+                            'no. rooms': [],
+                            'no. bathrooms': [],
+                            'no. stories': []
+                        }
+
+            for house in df['features']:
+                if 'asking price per m²' in house['transfer of ownership']:
+                    dict_funda['price per square meters'].append(house['transfer of ownership']['asking price per m²'])
+                else:
+                    dict_funda['price per square meters'].append(np.nan)
+
+                if 'vve (owners association) contribution' in house['transfer of ownership']:
+                    dict_funda['vve contribution'].append(house['transfer of ownership']['vve (owners association) contribution'])
+                else:
+                    dict_funda['vve contribution'].append(np.nan)
+
+                if 'year of construction' in house['construction']:
+                    dict_funda['construction year'].append(house['construction']['year of construction'])
+                else:
+                    dict_funda['construction year'].append(np.nan)
+
+                if 'number of rooms' in house['layout']:
+                    dict_funda['no. rooms'].append(house['layout']['number of rooms'])
+                else:
+                    dict_funda['no. rooms'].append(np.nan)
+
+                if 'number of bath rooms' in house['layout']:
+                    dict_funda['no. bathrooms'].append(house['layout']['number of bath rooms'])
+                else:
+                    dict_funda['no. bathrooms'].append(np.nan)
+
+                if 'number of stories' in house['layout']:
+                    dict_funda['no. stories'].append(house['layout']['number of stories'])
+                else:
+                    dict_funda['no. stories'].append(np.nan)
+
+                if 'energy' in house:
+                    if 'energy label' in house['energy']:
+                        dict_funda['energy label'].append(house['energy']['energy label'])
+                else:
+                    dict_funda['energy label'].append(np.nan)
+
+                if 'kind of house' in house['construction']:
+                    dict_funda['house type'].append(house['construction']['kind of house'])
+                elif 'type apartment' in house['construction']:
+                    dict_funda['house type'].append(house['construction']['type apartment'])
+                elif 'type of property' in house['construction']:
+                    dict_funda['house type'].append(house['construction']['type of property'])
+                elif 'type apartment' in house['construction']:
+                    dict_funda['house type'].append(house['construction']['type apartment'])
+                else:
+                    dict_funda['house type'].append(np.nan)
+
+            for key, value in dict_funda.items():
+                df[key] = value
+            return df
+        dataframe = extract_features(dataframe)
+                
+        def extract_cities(location_list):
+            cities = []
+            regex = re.compile(r'\(.+\)')
+            for i in location_list:
+                i = re.sub(regex, '', i)
+                i_list = i.split(' ', maxsplit=2)
+                cities.append(i_list[-1])
+            return cities
+        dataframe['city'] = extract_cities(dataframe['location_part2'])
         # price
         def filter_price(df):
             """
