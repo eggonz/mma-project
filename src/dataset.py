@@ -147,12 +147,6 @@ class FundaDataset:
 
         return dataframe
 
-    def save_as_csv(self, path: str) -> None:
-        """
-        Saves the dataframe as a csv file
-        """
-        self.df.to_csv(path)
-
     def get_images(self, funda_id: int) -> dict[str, Image.Image]:
         """
         Get the PIL.Images for a house with a given funda_id
