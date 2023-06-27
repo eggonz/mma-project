@@ -235,7 +235,7 @@ app_main = dbc.Container(
         dbc.Row(dbc.Col(html.Div("A single column"))),
         dbc.Row(
             [
-                dbc.Col(html.Div(prompt_holders), width= 3 ),
+                dbc.Col(prompt_holders, width= 3 ),
                 dbc.Col(map_holders, width = 6),
                 dbc.Col(html.Div(image_table_holders), width= 3),
             ],  className="justify-content-center",  style={'height': '100%'}
@@ -415,7 +415,6 @@ def update_image(value):
     [
         Output("umap", "figure", allow_duplicate=True),
         Output("geomap", "figure", allow_duplicate=True),
-        Output("data_table", "data"),
         Output("previous_prompts", "children", allow_duplicate=True)
     ],
     Input("prompt", "value"),
@@ -430,7 +429,7 @@ def on_input_prompt(prompt):
     return (
         figures["umap"],
         figures["geomap"],
-        state["stack"][-1]["df"].drop(columns="images").to_dict("records"),
+        # state["stack"][-1]["df"].drop(columns="images").to_dict("records"),
         prompt_list
     )
 
