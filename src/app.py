@@ -4,13 +4,14 @@ import pandas as pd
 import plotly.express as px
 import requests
 from PIL import Image
-
+import base64
+import os
 from dash import Dash, Input, Output, callback, ctx, dash_table, dcc, html
 
 ASSETS_PATH = "../assets"
 ADS_PATH = "../data/ads.jsonlines"
 EMBEDDINGS_PATH = "../data/embeddings.pkl"
-IMAGES_PATH = "../data/images"
+IMAGES_PATH = "../funda"
 
 # #
 # --------------- Reading in some initial data ----------------
@@ -28,7 +29,7 @@ df["images"] = df["images_paths"]
 df["lat"] = pd.to_numeric(df["geolocation.lat"])
 df["lon"] = pd.to_numeric(df["geolocation.lon"])
 
-df["funda"] = df["funda_identifier"]
+df["funda"] = pd.to_numeric(df["funda_identifier"])
 df["city"] = df["location_part2"].str.split().str[2]
 df["price"] = pd.to_numeric(df["price"].str.split().str[1].str.replace(",", ""), errors="coerce")
 df["living_area_size"] = df["highlights.living area"].str.split().str[0].str.replace(",", "").astype(float)
@@ -70,6 +71,9 @@ df = df[[
     "funda", "images", "lat", "lon", "city", "price",
     "living_area_size", "nr_bedrooms", "energy_label"
 ]]
+
+# indices = [42194016, 42194023, 42194046]
+# df = df[df['funda'].isin(indices)]
 
 state = {
     "stack": [{"df": df, "prompt": ""}],
@@ -225,9 +229,7 @@ app.layout = html.Div([
 
 @callback(
     [
-        Output("umap", "figure", allow_duplicate=True),
-        Output("geomap", "figure", allow_duplicate=True),
-        Output("image_container", "style")
+        Output("image_container", "children")
     ],
     Input("geomap", "hoverData"),
     Input("umap", "hoverData"),
@@ -244,10 +246,11 @@ def on_hover(geo, umap):
         return None
     update_colors(idx=idx)
     # Use the latest dataframe to get the on hover information.
-    imgs = state["stack"][-1]["df"].loc[state["stack"][-1]["df"]["funda"] == funda, 'images']    
-    return [umap, geo, {
-        "background-image": f"url(assets/images/{imgs.iloc[0]})"
-    }]
+    imgs = state["stack"][-1]["df"].loc[state["stack"][-1]["df"]["funda"] == funda, 'images'] 
+    print(imgs)
+    encoded_image = [base64.b64encode(open(f'{IMAGES_PATH}/{img}', 'rb').read()) for img in imgs.iloc[0]]
+    children = [html.Img(src='data:image/png;base64,{}'.format(img.decode()),  style={'height':'10%', 'width':'10%'}) for img in encoded_image]   
+    return [children]
 
 
 @callback(
