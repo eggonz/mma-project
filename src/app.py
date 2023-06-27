@@ -72,8 +72,8 @@ df = df[[
     "living_area_size", "nr_bedrooms", "energy_label"
 ]]
 
-# indices = [42194016, 42194023, 42194046]
-# df = df[df['funda'].isin(indices)]
+indices = [42194016, 42194023, 42194046]
+df = df[df['funda'].isin(indices)]
 
 state = {
     "stack": [{"df": df, "prompt": ""}],
@@ -228,7 +228,9 @@ app.layout = html.Div([
 # #
 
 @callback(
-    [
+    [   
+        Output("umap", "figure"),
+        Output("geomap", "figure"),
         Output("image_container", "children")
     ],
     Input("geomap", "hoverData"),
@@ -247,10 +249,9 @@ def on_hover(geo, umap):
     update_colors(idx=idx)
     # Use the latest dataframe to get the on hover information.
     imgs = state["stack"][-1]["df"].loc[state["stack"][-1]["df"]["funda"] == funda, 'images'] 
-    print(imgs)
     encoded_image = [base64.b64encode(open(f'{IMAGES_PATH}/{img}', 'rb').read()) for img in imgs.iloc[0]]
     children = [html.Img(src='data:image/png;base64,{}'.format(img.decode()),  style={'height':'10%', 'width':'10%'}) for img in encoded_image]   
-    return [children]
+    return [figures['umap'], figures['geomap'], children]
 
 
 @callback(
