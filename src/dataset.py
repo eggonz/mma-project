@@ -11,8 +11,8 @@ from PIL import Image
 import umap_utils
 
 
-class FundaEmbeddings:
-    def __init__(self, df):
+class FundaPrecomputedEmbeddings:
+    def __init__(self, df: pd.DataFrame):
         """
         This class is used to load the embeddings from a pickle file and to retrieve them
         Use FundaEmbeddings.from_pickle to load the embeddings from a pickle file
@@ -22,16 +22,18 @@ class FundaEmbeddings:
         - umap_x: the x coordinate of the umap projection (optional)
         - umap_y: the y coordinate of the umap projection (optional)
         """
+        if not isinstance(df, pd.DataFrame):
+            raise TypeError('df should be a pandas dataframe')
         self.df = df
 
-    def clone(self) -> FundaEmbeddings:
+    def clone(self) -> FundaPrecomputedEmbeddings:
         """
         Returns a clone of the current FundaEmbeddings object
         """
-        return FundaEmbeddings(self.df.copy())
+        return FundaPrecomputedEmbeddings(self.df.copy())
 
     @classmethod
-    def from_pickle(cls, embeddings_path: str) -> FundaEmbeddings:
+    def from_pickle(cls, embeddings_path: str) -> FundaPrecomputedEmbeddings:
         """
         Loads a FundaEmbeddings from a pickle file
         """
@@ -42,7 +44,7 @@ class FundaEmbeddings:
         """
         Returns the embedding of the image at the given path
         """
-        return self.df['embeddings'].loc[image_path].values[0]
+        return self.df['embeddings'].loc[image_path]
 
     def get_umap(self, image_path: str) -> tuple[float, float]:
         """
@@ -50,14 +52,28 @@ class FundaEmbeddings:
         """
         if 'umap_x' not in self.df.columns or 'umap_y' not in self.df.columns:
             raise ValueError('UMap not computed')
-        x = self.df['umap_x'].loc[image_path].values[0]
-        y = self.df['umap_y'].loc[image_path].values[0]
+        x = self.df['umap_x'].loc[image_path]
+        y = self.df['umap_y'].loc[image_path]
         return x, y
+
+    def get_all_embeddings(self) -> np.ndarray:
+        """
+        Returns all the embeddings
+        """
+        return np.stack(self.df['embeddings'].values)
+
+    def get_all_umaps(self) -> np.ndarray:
+        """
+        Returns all the umap coordinates
+        """
+        if 'umap_x' not in self.df.columns or 'umap_y' not in self.df.columns:
+            raise ValueError('UMap not computed')
+        return np.stack([self.df['umap_x'].values, self.df['umap_y'].values]).T
 
     def __len__(self) -> int:
         return len(self.df)
 
-    def filter(self, selected_ids: list[int]) -> FundaEmbeddings:
+    def filter(self, selected_ids: list[int]) -> FundaPrecomputedEmbeddings:
         """
         Filters the embeddings using a list of selected ids
         Returns a new FundaEmbeddings object
@@ -67,7 +83,7 @@ class FundaEmbeddings:
             return int(x.split('/', maxsplit=1)[0]) in selected_ids
         idxs = self.df.index.filter(is_selected).values
         df = self.df.loc[idxs].copy()
-        return FundaEmbeddings(df)
+        return FundaPrecomputedEmbeddings(df)
 
     def recompute_umap(self):
         umap_embeddings = umap_utils.compute_umap(self.df['embeddings'], n_components=2)
@@ -76,11 +92,13 @@ class FundaEmbeddings:
 
 
 class FundaDataset:
-    def __init__(self, df, images_dir):
+    def __init__(self, df: pd.DataFrame, images_dir: str):
         """
         This class is used to load the dataset from a jsonlines file and to retrieve the data
         Use FundaDataset.from_jsonlines to load the dataset from a jsonlines file
         """
+        if not isinstance(df, pd.DataFrame):
+            raise TypeError('df should be a pandas dataframe')
         self.df = df
         self.images_dir = images_dir
 
@@ -128,7 +146,7 @@ class FundaDataset:
             Filters the items to only keep the ones that contain the price. the price in € is converted to int
             """
             # filter rows with regex
-            regex = re.compile(r'€\s*(?P<price>\d{1,3}([,\.]\d{3})*)\s*(k\.k\.|v\.o\.n\.)')
+            regex = re.compile(r'€\s*(?P<price>\d{1,3}([,.]\d{3})*)\s*(k\.k\.|v\.o\.n\.)')
             df = df[df['price'].apply(lambda x: regex.match(x) is not None)].copy()
             # extract price
             df['price'] = df['price'].map(lambda x: regex.match(x).groupdict()['price'])
@@ -182,7 +200,7 @@ class FundaDataset:
 
 if __name__ == '__main__':
     # TEST CODE
-    fd = FundaDataset('../data/Funda/Funda/ads.jsonlines', '../data/Funda/images')
+    fd = FundaDataset.from_jsonlines('../data/Funda/Funda/ads.jsonlines', '../data/funda_images_tiny')
     fd.save_as_csv('../data/Funda/Funda/ads.csv')
     print(fd.df.head())
     print()
@@ -205,13 +223,17 @@ if __name__ == '__main__':
         ax.set_axis_off()
     plt.tight_layout()
     plt.show()
-
+    print('ok')
+    print()
     print('VERIFY EMBEDDINGS')
-    fe = FundaEmbeddings('../data/embeddings/funda_sample.pkl')
+    fe = FundaPrecomputedEmbeddings.from_pickle('../data/clip_embeddings/funda_images_tiny_umap.pkl')
     print(len(fe))
     emb = fe.get_embedding('42194072/image1.jpeg')
     print(type(emb), emb.shape)
     ux, uy = fe.get_umap('42194072/image1.jpeg')
     print(type(ux), type(uy))
-
-
+    print()
+    print('VERIFY ALL EMBEDDINGS')
+    embs = fe.get_all_embeddings()
+    us = fe.get_all_umaps()
+    print(embs.shape, us.shape)

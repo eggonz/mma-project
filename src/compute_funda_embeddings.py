@@ -1,14 +1,16 @@
+"""
+Script file intended to precompute embeddings for the whole funda dataset.
+In principle, not a module nor part of the pipeline.
+"""
 import argparse
 import glob
 import os
 
 import pandas as pd
-import torch
 from PIL import Image
 from tqdm import tqdm
 
 import clip
-from fromage import utils
 
 
 def get_image_from_jpeg(path):
@@ -20,20 +22,18 @@ def get_image_from_jpeg(path):
 
 def _compute_embeddings_from_images(images_dir, output_file):
     # Load the model
-    clip_model = clip.load_clip_for_embeddings()
+    clip_model = clip.load_clip_model()
     embeddings = {'embeddings': [], 'paths': []}
     # Open the json file
     full_image_paths = glob.glob(images_dir + "/**/*.jpeg", recursive=True)
     for full_image_path in tqdm(full_image_paths):
-        p = get_image_from_jpeg(path=full_image_path)
-        with torch.no_grad():
-            pixel_values = utils.get_pixel_values_for_model(clip_model.feature_extractor, p)
-            pixel_values = pixel_values.to(device=clip_model.logit_scale.device, dtype=clip_model.logit_scale.dtype)
-            pixel_values = pixel_values[None, ...]
-            visual_embs = clip_model.get_visual_embs(pixel_values)
-        embeddings['embeddings'].append(visual_embs.float().cpu().numpy())
+        img = get_image_from_jpeg(path=full_image_path)
+        visual_embs = clip_model.get_visual_emb_for_img(img)
+        embeddings['embeddings'].append(visual_embs)
+
         image_path = os.path.join(*full_image_path.split('/')[-2:])
         embeddings['paths'].append(image_path)
+
     df = pd.DataFrame(embeddings)
     df.set_index('paths', inplace=True)
     os.makedirs(os.path.dirname(output_file), exist_ok=True)

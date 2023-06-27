@@ -55,12 +55,10 @@ def draw_umap(umap_embeddings, title='UMap Visualization of Fromage dataspace'):
     return fig
 
 
-def filter_umap(self):
-    # TODO
-    pass
-
-
 if __name__ == '__main__':
+    """
+    Can be used as script to add umap coords to existing embeddings dataframe
+    """
     parser = argparse.ArgumentParser()
     parser.add_argument('--embeddings_file', type=str, required=True)
     parser.add_argument('--output_file', type=str, required=True)
