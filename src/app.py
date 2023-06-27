@@ -43,14 +43,16 @@ df["energy_label"] = df["features.energy.energy label"].str.split().str[0].map(l
 # #
 
 def create_geomap(data):
-    fig = px.scatter_mapbox(data, lat="lat", lon="lon", zoom=7)
+    fig = px.scatter_mapbox(data, lat="lat", lon="lon", 
+                            zoom=7, 
+                            custom_data=['funda'])
     fig.update_layout(mapbox_style="open-street-map", uirevision=True)
     fig.update_layout(margin={"r": 0, "t": 0, "l": 0, "b": 0}, showlegend=False)
     return fig
 
 
 def create_umap(data):
-    fig = px.scatter(data, x="energy_label", y="nr_bedrooms")
+    fig = px.scatter(data, x="energy_label", y="nr_bedrooms", custom_data = ['funda'])
     fig.update_layout(
         margin={"r": 0, "t": 0, "l": 0, "b": 0},
         xaxis={'visible': False, 'showticklabels': False},
@@ -100,7 +102,6 @@ def reduce_houses(prompt):
 
 def update_maps():
     houses = state["stack"][-1]["df"]
-
     figures["geomap"] = create_geomap(houses)
     figures["umap"] = create_umap(houses)
 
@@ -235,18 +236,18 @@ app.layout = html.Div([
 def on_hover(geo, umap):
     idx = None
     if geo is not None and ctx.triggered_id == "geomap":
-        idx = geo["points"][0]["pointIndex"]
+        # This is the funda identifier
+        funda, idx = geo['points'][0]["customdata"][0], geo["points"][0]["pointIndex"]
     if umap is not None and ctx.triggered_id == "umap":
-        idx = umap["points"][0]["pointIndex"]
-
-    print(idx)
+        funda, idx = umap['points'][0]["customdata"][0], umap["points"][0]["pointIndex"]
+    if idx is None:
+        return None
     update_colors(idx=idx)
-
-    imgs = df.loc[idx, "images"]
-
-    return figures["umap"], figures["geomap"], {
-        "background-image": f"url(assets/images/{imgs[0]})"
-    }
+    # Use the latest dataframe to get the on hover information.
+    imgs = state["stack"][-1]["df"].loc[state["stack"][-1]["df"]["funda"] == funda, 'images']    
+    return [umap, geo, {
+        "background-image": f"url(assets/images/{imgs.iloc[0]})"
+    }]
 
 
 @callback(
