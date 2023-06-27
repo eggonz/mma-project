@@ -53,21 +53,3 @@ def draw_umap(umap_embeddings, title='UMap Visualization of Fromage dataspace'):
         ax.scatter(umap_embeddings[:, 0], umap_embeddings[:, 1], umap_embeddings[:, 2], s=100)
     plt.title(title, fontsize=18)
     return fig
-
-
-if __name__ == '__main__':
-    """
-    Can be used as script to add umap coords to existing embeddings dataframe
-    """
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--embeddings_file', type=str, required=True)
-    parser.add_argument('--output_file', type=str, required=True)
-    args = parser.parse_args()
-
-    df = pd.read_pickle(args.embeddings_file)
-    print(df.head())
-    umap_embeddings = compute_umap(df['embeddings'], n_components=2)
-    df['umap_x'] = umap_embeddings[:, 0]
-    df['umap_y'] = umap_embeddings[:, 1]
-    print(df.head())
-    df.to_pickle(args.output_file)
