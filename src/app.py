@@ -30,6 +30,7 @@ df["living_area_size"] = df["highlights.living area"].str.split().str[0].str.rep
 df["nr_bedrooms"] = df["highlights.bedrooms"].astype(float)
 df["energy_label"] = df["features.energy.energy label"].str.split().str[0].map(labels)
 
+
 # print(df[["city", "nr_bedrooms", "energy_label"]])
 
 # #
@@ -39,18 +40,20 @@ df["energy_label"] = df["features.energy.energy label"].str.split().str[0].map(l
 def create_geomap(data):
     fig = px.scatter_mapbox(data, lat="lat", lon="lon", zoom=7)
     fig.update_layout(mapbox_style="open-street-map", uirevision=True)
-    fig.update_layout(margin={"r":0,"t":0,"l":0,"b":0}, showlegend=False)
+    fig.update_layout(margin={"r": 0, "t": 0, "l": 0, "b": 0}, showlegend=False)
     return fig
+
 
 def create_umap(data):
     fig = px.scatter(data, x="energy_label", y="nr_bedrooms")
     fig.update_layout(
-        margin={"r":0,"t":0,"l":0,"b":0},
+        margin={"r": 0, "t": 0, "l": 0, "b": 0},
         xaxis={'visible': False, 'showticklabels': False},
         yaxis={'visible': False, 'showticklabels': False}
     )
     print(data.shape)
     return fig
+
 
 # #
 # --------------- Global variables ----------------
@@ -72,6 +75,7 @@ figures = {
 }
 
 app = Dash(__name__)
+
 
 # #
 # --------------- State changing functions ----------------
@@ -95,6 +99,7 @@ def update_maps():
     figures["geomap"] = create_geomap(houses)
     figures["umap"] = create_umap(houses)
 
+
 def update_colors(idx):
     color = ["blue"] * len(state["stack"][-1]["df"])
     if idx is not None:
@@ -107,16 +112,19 @@ def update_colors(idx):
     figures["geomap"] = figures["geomap"].update_traces(marker=dict(color=color))
     figures["umap"] = figures["umap"].update_traces(marker=dict(color=color))
 
+
 def update_prompt_list():
     return html.Ol([
         html.Li(p["prompt"])
         for p in state["stack"][1:]
     ])
 
+
 def reset():
     if len(state["stack"]) > 1:
         state["stack"] = state["stack"][:1]
         update_maps()
+
 
 def undo():
     if len(state["stack"]) > 1:
@@ -141,7 +149,7 @@ app.layout = html.Div([
                 ),
                 html.Div(id="previous_prompts")
             ],
-            className="content"),
+                className="content"),
             id="top_left", className="panel"
         ),
         html.Div(
@@ -164,7 +172,7 @@ app.layout = html.Div([
             id="bottom_left", className="panel"
         )
     ], id="left"),
-	html.Div([
+    html.Div([
         html.Div(
             html.Div(
                 dcc.Graph(
@@ -204,6 +212,7 @@ app.layout = html.Div([
     ], id="right")
 ], id="container")
 
+
 # #
 # --------------- Callbacks for interactions ----------------
 # #
@@ -234,6 +243,7 @@ def on_hover(geo, umap):
         "background-image": f"url(assets/images/{imgs[0]})"
     }
 
+
 @callback(
     [
         Output("umap", "figure", allow_duplicate=True),
@@ -257,6 +267,7 @@ def on_input_prompt(prompt):
         prompt_list
     )
 
+
 @callback(
     Output("image_prompt_vis", "style"),
     Input("image_prompt", "value")
@@ -274,6 +285,7 @@ def on_input_image_prompt(url):
         "background-image": f"url({url})"
     }
 
+
 @callback(
     [
         Output("umap", "figure", allow_duplicate=True),
@@ -288,6 +300,7 @@ def on_button_reset(n_clicks):
     prompt_list = update_prompt_list()
     return figures["umap"], figures["geomap"], prompt_list
 
+
 @callback(
     [
         Output("umap", "figure", allow_duplicate=True),
@@ -301,6 +314,8 @@ def on_button_undo(n_clicks):
     undo()
     prompt_list = update_prompt_list()
     return figures["umap"], figures["geomap"], prompt_list
+
+
 # #
 # --------------- Main ----------------
 # #
