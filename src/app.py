@@ -186,7 +186,7 @@ umap = dbc.Card(
                 )],
                 className="content"
             ),
-            ],
+            ], style={'height':'70vh'}
 )
 
 
@@ -232,13 +232,12 @@ image_table_holders = html.Div([
 
 app_main = dbc.Container(
     [
-        dbc.Row(dbc.Col(html.Div("A single column"))),
         dbc.Row(
             [
-                dbc.Col(prompt_holders, width= 3 ),
-                dbc.Col(map_holders, width = 6),
+                dbc.Col(prompt_holders, width= 3),
+                dbc.Col(map_holders, width = 5),
                 dbc.Col(html.Div(image_table_holders), width= 3),
-            ],  className="justify-content-center",  style={'height': '100%'}
+            ],  style={'height': '100%'}
         ),
     ], fluid = True
 )
@@ -387,7 +386,7 @@ def on_hover(geo, umap):
     # Use the latest dataframe to get the on hover information.
     imgs = state["stack"][-1]["df"].loc[state["stack"][-1]["df"]["funda"] == funda, 'images'] 
     encoded_image = [base64.b64encode(open(f'{IMAGES_PATH}/{img}', 'rb').read()) for img in imgs.iloc[0]]
-    children = [html.Img(src='data:image/png;base64,{}'.format(img.decode()), style = {"height": "300px", "width" : "300px"}) for img in encoded_image]   
+    children = [html.Img(src='data:image/png;base64,{}'.format(img.decode()), style = {"height": "300px", "width" : "350px", "margin-left": "20px"}) for img in encoded_image]   
     state["children"] = children
     slider = html.Div([
     dcc.Slider(
