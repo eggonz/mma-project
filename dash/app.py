@@ -96,13 +96,22 @@ def update_maps():
     figures["umap"] = create_umap(houses)
 
 def update_colors(idx):
-    color = [
-        ("red" if i == idx else "blue")
-        for i in range(len(state["stack"][-1]["df"]))
-    ]
+    color = ["blue"] * len(state["stack"][-1]["df"])
+    if idx is not None:
+        color[idx] = "red"
+    # color = [
+    #     ("red" if i == idx else "blue")
+    #     for i in range(len(state["stack"][-1]["df"]))
+    # ]
 
     figures["geomap"] = figures["geomap"].update_traces(marker=dict(color=color))
     figures["umap"] = figures["umap"].update_traces(marker=dict(color=color))
+
+def update_prompt_list():
+    return html.Ol([
+        html.Li(p["prompt"])
+        for p in state["stack"][1:]
+    ])
 
 def reset():
     if len(state["stack"]) > 1:
@@ -129,7 +138,8 @@ app.layout = html.Div([
                 dcc.Input(
                     id="prompt", type="text", debounce=True,
                     placeholder="city == 'Amsterdam' or city == 'Rotterdam'"
-                )
+                ),
+                html.Div(id="previous_prompts")
             ],
             className="content"),
             id="top_left", className="panel"
@@ -185,7 +195,7 @@ app.layout = html.Div([
             html.Div(
                 dash_table.DataTable(
                     state["stack"][-1]["df"].drop(columns="images").to_dict("records"),
-                    page_size=19
+                    page_size=15, id="data_table"
                 ),
                 className="content"
             ),
@@ -227,7 +237,9 @@ def on_hover(geo, umap):
 @callback(
     [
         Output("umap", "figure", allow_duplicate=True),
-        Output("geomap", "figure", allow_duplicate=True)
+        Output("geomap", "figure", allow_duplicate=True),
+        Output("data_table", "data"),
+        Output("previous_prompts", "children", allow_duplicate=True)
     ],
     Input("prompt", "value"),
     prevent_initial_call=True
@@ -237,7 +249,13 @@ def on_input_prompt(prompt):
         return
 
     reduce_houses(prompt)
-    return figures["umap"], figures["geomap"]
+    prompt_list = update_prompt_list()
+    return (
+        figures["umap"],
+        figures["geomap"],
+        state["stack"][-1]["df"].drop(columns="images").to_dict("records"),
+        prompt_list
+    )
 
 @callback(
     Output("image_prompt_vis", "style"),
@@ -259,26 +277,30 @@ def on_input_image_prompt(url):
 @callback(
     [
         Output("umap", "figure", allow_duplicate=True),
-        Output("geomap", "figure", allow_duplicate=True)
+        Output("geomap", "figure", allow_duplicate=True),
+        Output("previous_prompts", "children", allow_duplicate=True)
     ],
     Input("reset_button", "n_clicks"),
     prevent_initial_call=True
 )
 def on_button_reset(n_clicks):
     reset()
-    return figures["umap"], figures["geomap"]
+    prompt_list = update_prompt_list()
+    return figures["umap"], figures["geomap"], prompt_list
 
 @callback(
     [
         Output("umap", "figure", allow_duplicate=True),
-        Output("geomap", "figure", allow_duplicate=True)
+        Output("geomap", "figure", allow_duplicate=True),
+        Output("previous_prompts", "children", allow_duplicate=True)
     ],
     Input("undo_button", "n_clicks"),
     prevent_initial_call=True
 )
 def on_button_undo(n_clicks):
     undo()
-    return figures["umap"], figures["geomap"]
+    prompt_list = update_prompt_list()
+    return figures["umap"], figures["geomap"], prompt_list
 # #
 # --------------- Main ----------------
 # #
