@@ -126,119 +126,6 @@ class FundaDataset:
         FundaDataset._format_df(df)
         return df
 
-    def save_as_csv(self, path: str) -> None:
-        """
-        Saves the dataframe as a csv file
-        """
-        self.df.to_csv(path)
-
-    @staticmethod
-    def _format_df(dataframe) -> None:
-        """
-        Performs formatting on the dataframe. This includes:
-        - filtering the price
-        - converting the geolocation to a tuple
-        """
-        def extract_features(df):
-            df = df.drop(index=df.loc[42119366].name) # to be changed later: replace all values with nan instead or translate
-
-            dict_funda = {  'price per square meters':[], 
-                            'vve contribution':[],
-                            'house type':[],
-                            'construction year':[],
-                            'energy label': [],
-                            'no. rooms': [],
-                            'no. bathrooms': [],
-                            'no. stories': []
-                        }
-
-            for house in df['features']:
-                if 'asking price per m²' in house['transfer of ownership']:
-                    dict_funda['price per square meters'].append(house['transfer of ownership']['asking price per m²'])
-                else:
-                    dict_funda['price per square meters'].append(np.nan)
-
-                if 'vve (owners association) contribution' in house['transfer of ownership']:
-                    dict_funda['vve contribution'].append(house['transfer of ownership']['vve (owners association) contribution'])
-                else:
-                    dict_funda['vve contribution'].append(np.nan)
-
-                if 'year of construction' in house['construction']:
-                    dict_funda['construction year'].append(house['construction']['year of construction'])
-                else:
-                    dict_funda['construction year'].append(np.nan)
-
-                if 'number of rooms' in house['layout']:
-                    dict_funda['no. rooms'].append(house['layout']['number of rooms'])
-                else:
-                    dict_funda['no. rooms'].append(np.nan)
-
-                if 'number of bath rooms' in house['layout']:
-                    dict_funda['no. bathrooms'].append(house['layout']['number of bath rooms'])
-                else:
-                    dict_funda['no. bathrooms'].append(np.nan)
-
-                if 'number of stories' in house['layout']:
-                    dict_funda['no. stories'].append(house['layout']['number of stories'])
-                else:
-                    dict_funda['no. stories'].append(np.nan)
-
-                if 'energy' in house:
-                    if 'energy label' in house['energy']:
-                        dict_funda['energy label'].append(house['energy']['energy label'])
-                else:
-                    dict_funda['energy label'].append(np.nan)
-
-                if 'kind of house' in house['construction']:
-                    dict_funda['house type'].append(house['construction']['kind of house'])
-                elif 'type apartment' in house['construction']:
-                    dict_funda['house type'].append(house['construction']['type apartment'])
-                elif 'type of property' in house['construction']:
-                    dict_funda['house type'].append(house['construction']['type of property'])
-                elif 'type apartment' in house['construction']:
-                    dict_funda['house type'].append(house['construction']['type apartment'])
-                else:
-                    dict_funda['house type'].append(np.nan)
-
-            for key, value in dict_funda.items():
-                df[key] = value
-            return df
-        dataframe = extract_features(dataframe)
-                
-        def extract_cities(location_list):
-            cities = []
-            regex = re.compile(r'\(.+\)')
-            for i in location_list:
-                i = re.sub(regex, '', i)
-                i_list = i.split(' ', maxsplit=2)
-                cities.append(i_list[-1])
-            return cities
-        dataframe['city'] = extract_cities(dataframe['location_part2'])
-        # price
-        def filter_price(df):
-            """
-            Filters the items to only keep the ones that contain the price. the price in € is converted to int
-            """
-            # filter rows with regex
-            regex = re.compile(r'€\s*(?P<price>\d{1,3}([,.]\d{3})*)\s*(k\.k\.|v\.o\.n\.)')
-            df = df[df['price'].apply(lambda x: regex.match(x) is not None)].copy()
-            # extract price
-            df['price'] = df['price'].map(lambda x: regex.match(x).groupdict()['price'])
-            # remove commas
-            df['price'] = df['price'].map(lambda x: x.replace(',', '').replace('.', ''))
-            # convert to int
-            df['price'] = df['price'].astype(int)
-            return df
-        dataframe = filter_price(dataframe)
-
-        # geolocation
-        def geolocation_as_coord(x):
-            """converts the geolocation to a tuple (lat, lon)"""
-            return float(x['lat']), float(x['lon'])
-        dataframe['geolocation'] = dataframe['geolocation'].apply(geolocation_as_coord)
-
-        return dataframe
-
     def get_images(self, funda_id: int) -> dict[str, Image.Image]:
         """
         Get the PIL.Images for a house with a given funda_id
@@ -263,6 +150,19 @@ class FundaDataset:
         # TODO specify necessary data
         """
         return self.df.loc[funda_id]
+    
+    def export_pickle(self, path='./data', remove=['crawl_time', 'location_part2', 'in_the_neighborhood']):
+        """
+        Export the DataFrame in a pickle file
+        """
+        export_df = self.df.copy()
+        export_df = export_df.drop(columns=remove)
+
+        mapper = {'location_part1': 'address', 'location_part3': 'neighborhood'}
+        export_df = export_df.rename(columns=mapper)
+
+        export_df.to_pickle(f'{path}/funda_processed.pkl')
+        print(f'DataFrame successfully exported to {path}')
 
     def filter(self, filter_expression: str) -> FundaDataset:
         """
@@ -270,44 +170,151 @@ class FundaDataset:
         Returns a new FundaDataset object
         """
         return FundaDataset(self.df.filter(filter_expression, axis=0), self.images_dir)
+    
+    @staticmethod
+    def _format_df(dataframe) -> None:
+        """
+        Performs formatting on the dataframe. This includes:
+        - filtering the price
+        - converting the geolocation to a tuple
+        """
+        def extract_features(df):
+            df = df.drop(index=df.loc[42119366].name) # to be changed: replace all values with nan instead or translate
+            for i, house in enumerate(df['features']):
+                if 'asking price per m²' in house['transfer of ownership']:
+                    price = house['transfer of ownership']['asking price per m²'].split(' ')[1]
+                    regex = re.compile(r',')
+                    price = re.sub(regex, '',price)
+                    df.loc[df.index[i], 'price per m²'] = price
+                if 'vve (owners association) contribution' in house['transfer of ownership']:
+                    df.loc[df.index[i], 'vve contribution'] = house['transfer of ownership']['vve (owners association) contribution']
+                if 'year of construction' in house['construction']:
+                    df.loc[df.index[i], 'construction year'] = house['construction']['year of construction']
+                if 'number of rooms' in house['layout']:
+                    cell = house['layout']['number of rooms'].split(' ')
+                    df.loc[df.index[i], 'no. rooms'] = cell[0]
+                    if len(cell) > 2:
+                        bedrooms = cell[2][1]
+                        df.loc[df.index[i], 'no. bedrooms'] = bedrooms                
+                if 'number of bath rooms' in house['layout']:
+                    df.loc[df.index[i], 'no. bathrooms'] = house['layout']['number of bath rooms']
+                if 'number of stories' in house['layout']:
+                    df.loc[df.index[i], 'no. stories'] = house['layout']['number of stories']
+                if 'energy' in house:
+                    if 'energy label' in house['energy']:
+                        df.loc[df.index[i], 'energy label'] = house['energy']['energy label']
+                
+                keys = ['kind of house', 'type apartment', 'type of property', 'type of apartment']
+                type_key = list(set(keys) & set(house['construction'].keys()))
+                if len(type_key) != 0:
+                    df.loc[df.index[i], 'house type'] = house['construction'][type_key[0]]
+
+            # drop features column
+            df = df.drop(columns='features')
+            return df
+        dataframe = extract_features(dataframe)
+
+        def extract_highlights(df):
+            for i, house in enumerate(df['highlights']):
+                if 'living area' in house:
+                    area = house['living area'].split(' ')[0]
+                    df.loc[df.index[i], 'living area (m²)'] = area
+                if 'plot size' in house:
+                    size = house['living area'].split(' ')[0]
+                    df.loc[df.index[i], 'plot size (m²)'] = size
+                if 'bedrooms' in house:
+                    df.loc[df.index[i], 'no. bedrooms'] = house['bedrooms']
+            # drop highlights column
+            df = df.drop(columns='highlights')
+            return df
+        dataframe = extract_highlights(dataframe)
+
+        def extract_cities(location_list):
+            cities = []
+            regex = re.compile(r'\(.+\)')
+            for i in location_list:
+                i = re.sub(regex, '', i)
+                i_list = i.split(' ', maxsplit=2)
+                cities.append(i_list[-1])
+            return cities
+        dataframe['city'] = extract_cities(dataframe['location_part2'])
+        
+        # price
+        def filter_price(df):
+            """
+            Filters the items to only keep the ones that contain the price. the price in € is converted to int
+            """
+            # filter rows with regex
+            regex = re.compile(r'€\s*(?P<price>\d{1,3}([,.]\d{3})*)\s*(k\.k\.|v\.o\.n\.)')
+            df = df[df['price'].apply(lambda x: regex.match(x) is not None)].copy()
+            # extract price
+            df['price'] = df['price'].map(lambda x: regex.match(x).groupdict()['price'])
+            # remove commas
+            df['price'] = df['price'].map(lambda x: x.replace(',', '').replace('.', ''))
+            # convert to int
+            df['price'] = df['price'].astype(int)
+            return df
+        dataframe = filter_price(dataframe)
+
+        # geolocation
+        def geolocation_as_coord(x):
+            """converts the geolocation to a tuple (lat, lon)"""
+            return float(x['lat']), float(x['lon'])
+        # dataframe['geolocation'] = dataframe['geolocation'].apply(geolocation_as_coord)
+        
+        def geolocation_as_cols(df):
+            """
+            Convert geolocation to two columns 'latitude' and 'longitude'
+            TODO: add bool statement to choose between geolocation_as_coord or geolocation_as_cols
+            """
+            for i, coords in enumerate(df['geolocation']):
+                df.loc[df.index[i], 'latitude'] = coords['lat']
+                df.loc[df.index[i], 'longitude'] = coords['lon']
+            df = df.drop(columns=['geolocation'])
+            return df
+        dataframe = geolocation_as_cols(dataframe)
+        return dataframe
+    
+
 
 
 if __name__ == '__main__':
     # TEST CODE
-    fd = FundaDataset.from_jsonlines('../data/Funda/Funda/ads.jsonlines', '../data/funda_images_tiny')
-    fd.save_as_csv('../data/Funda/Funda/ads.csv')
-    print(fd.df.head())
-    print()
-    print('VERIFY FORMATTING')
-    print(fd.df['images_paths'].head())
-    print(fd.df['price'].head())
-    print(fd.df['geolocation'].head())
-    print()
-    print('VERIFY ATTRIBUTES')
-    print(fd.get_images(42194092))
-    print(fd.get_coords(42194092))
-    print()
-    print('VERIFY IMAGES')
-    imgs = fd.get_images(42194092)
-    fig, axs = plt.subplots(1, 5, figsize=(20, 4))
-    for i, ax in enumerate(axs):
-        if i >= len(imgs):
-            break
-        ax.imshow(list(imgs.values())[i])
-        ax.set_axis_off()
-    plt.tight_layout()
-    plt.show()
-    print('ok')
-    print()
-    print('VERIFY EMBEDDINGS')
-    fe = FundaPrecomputedEmbeddings.from_pickle('../data/clip_embeddings/funda_images_tiny_umap.pkl')
-    print(len(fe))
-    emb = fe.get_embedding('42194072/image1.jpeg')
-    print(type(emb), emb.shape)
-    ux, uy = fe.get_umap('42194072/image1.jpeg')
-    print(type(ux), type(uy))
-    print()
-    print('VERIFY ALL EMBEDDINGS')
-    embs = fe.get_all_embeddings()
-    us = fe.get_all_umaps()
-    print(embs.shape, us.shape)
+    fd = FundaDataset.from_jsonlines('./data/ads.jsonlines', './data/funda_images_tiny')
+    fd.export_pickle()
+    # fd.save_as_csv('../data/Funda/Funda/ads.csv')
+    # print(fd.df.head())
+    # print()
+    # print('VERIFY FORMATTING')
+    # print(fd.df['images_paths'].head())
+    # print(fd.df['price'].head())
+    # print(fd.df['geolocation'].head())
+    # print()
+    # print('VERIFY ATTRIBUTES')
+    # print(fd.get_images(42194092))
+    # print(fd.get_coords(42194092))
+    # print()
+    # print('VERIFY IMAGES')
+    # imgs = fd.get_images(42194092)
+    # fig, axs = plt.subplots(1, 5, figsize=(20, 4))
+    # for i, ax in enumerate(axs):
+    #     if i >= len(imgs):
+    #         break
+    #     ax.imshow(list(imgs.values())[i])
+    #     ax.set_axis_off()
+    # plt.tight_layout()
+    # plt.show()
+    # print('ok')
+    # print()
+    # print('VERIFY EMBEDDINGS')
+    # fe = FundaPrecomputedEmbeddings.from_pickle('../data/clip_embeddings/funda_images_tiny_umap.pkl')
+    # print(len(fe))
+    # emb = fe.get_embedding('42194072/image1.jpeg')
+    # print(type(emb), emb.shape)
+    # ux, uy = fe.get_umap('42194072/image1.jpeg')
+    # print(type(ux), type(uy))
+    # print()
+    # print('VERIFY ALL EMBEDDINGS')
+    # embs = fe.get_all_embeddings()
+    # us = fe.get_all_umaps()
+    # print(embs.shape, us.shape)
