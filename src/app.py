@@ -7,11 +7,16 @@ from PIL import Image
 
 from dash import Dash, Input, Output, callback, ctx, dash_table, dcc, html
 
+ASSETS_PATH = "../assets"
+ADS_PATH = "../data/ads.jsonlines"
+EMBEDDINGS_PATH = "../data/embeddings.pkl"
+IMAGES_PATH = "../data/images"
+
 # #
 # --------------- Reading in some initial data ----------------
 # #
 
-with open("./data/ads.jsonlines", encoding="utf8") as fp:
+with open(ADS_PATH, encoding="utf8") as fp:
     data = fp.readlines()
 
 parsed = [json.loads(d) for d in data]
@@ -74,7 +79,7 @@ figures = {
     "umap": None
 }
 
-app = Dash(__name__)
+app = Dash(__name__, assets_folder=ASSETS_PATH)
 
 
 # #
