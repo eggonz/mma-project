@@ -1,4 +1,4 @@
-#left, #middle, #right, #middle_left {
+/* #left, #middle, #right, #middle_left {
     display: flex;
     flex-direction: column;
     justify-content: space-between;
@@ -68,4 +68,4 @@ h1 {
 
 li {
     color: white;
-}
+} */
