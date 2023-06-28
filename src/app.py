@@ -1,17 +1,23 @@
 import base64
+import io
+import re
 import os
 
 import dash_bootstrap_components as dbc
 import dash_leaflet as dl
 import dash_leaflet.express as dlx
+import numpy as np
 import pandas as pd
 import plotly.express as px
-import requests
 from PIL import Image
 
 import gpt
 from dash import (Dash, Input, Output, State, callback, ctx, dash_table, dcc,
                   html)
+
+from clip import load_clip_model, compute_emb_distances
+from dataset import FundaPrecomputedEmbeddings
+
 
 ASSETS_PATH = os.getenv("ASSETS_PATH")
 ADS_PATH = os.getenv("ADS_PATH")
@@ -43,15 +49,23 @@ df = pd.read_pickle(ADS_PATH)
 #     return fig
 
 
-def create_umap(data):
-    fig = px.scatter(
-        data,
-        x="energy_label",
-        y="nr_bedrooms",
-        custom_data=["funda"],
-        width=400,
-        height=400,
-    )
+def create_umap(houses):
+    houses_ids = houses['funda'].unique()
+
+    filtered_embeddings = ClipStuff.dataset_clip_embeddings.filter_ids(houses_ids)
+    umap_coords = filtered_embeddings.get_all_umaps()
+
+    if ClipStuff.query_clip_embedding is None:
+        ClipStuff.ranking = np.zeros(len(filtered_embeddings))
+    else:
+        ClipStuff.ranking = compute_emb_distances(ClipStuff.query_clip_embedding, filtered_embeddings.get_all_embeddings())
+
+    color = np.tanh(ClipStuff.ranking / 0.1)
+    data = pd.DataFrame({'umapx': umap_coords[:, 0], 'umapy': umap_coords[:, 1], 'rank': color, 'funda_id': filtered_embeddings.get_all_ids()})
+    size = np.clip(color*0.25+0.25, 0, 0.5)
+
+    fig = px.scatter(data, x="umapx", y="umapy", color="rank", size=size, custom_data=['funda_id'], opacity=0.5)
+
     fig.update_layout(
         margin={"r": 0, "t": 0, "l": 0, "b": 0},
         xaxis={"visible": False, "showticklabels": False},
@@ -114,6 +128,19 @@ state = {
 
 figures = {"geomap": None, "umap": None, "histo": None, "pie": None, "scatter": None}
 
+
+class ClipStuff:
+    model = load_clip_model()
+    query_clip_embedding = None
+    dataset_clip_embeddings = FundaPrecomputedEmbeddings.from_pickle(EMBEDDINGS_PATH)
+    ranking = None
+
+    @staticmethod
+    def reset():
+        ClipStuff.query_clip_embedding = None
+        ClipStuff.ranking = None
+
+
 app = Dash(
     __name__, assets_folder=ASSETS_PATH, external_stylesheets=[dbc.themes.LITERA]
 )
@@ -153,7 +180,7 @@ def update_colors(idx):
     if idx is not None:
         color[idx] = "red"
 
-    figures["umap"] = figures["umap"].update_traces(marker=dict(color=color))
+    #figures["umap"] = figures["umap"].update_traces(marker=dict(color=color))
 
 
 def update_prompt_list():
@@ -491,18 +518,38 @@ def on_pan_geomap(bounds):
 
 
 @callback(
-    Output("output-image-upload", "children"),
-    Input("upload-image", "contents"),
-    State("upload-image", "filename"),
+    [   
+        Output("output-image-upload", "children"),
+        Output("umap", "figure", allow_duplicate=True)
+    ],
+    Input('upload-image', 'contents'),
+    State('upload-image', 'filename'),
+    prevent_initial_call=True
 )
-def update_output(list_of_contents, list_of_names):
-    if list_of_contents is None:
-        return
+def update_uploaded_image(content, name):
+    """
+    it replaces the content of output-image-upload with the uploaded image and its name
 
-    children = [
-        parse_contents(c, n) for c, n in zip([list_of_contents], [list_of_names])
-    ]
-    return children
+    content: image encoded in str, base64 encoding of the image
+    name: name of the uploaded file
+    """
+    if content is not None:
+        clean_content = re.sub('^data:image/.+;base64,', '', content)
+        decoded_bytes = base64.b64decode(clean_content)
+        image_bytes = io.BytesIO(decoded_bytes)
+        image = Image.open(image_bytes)
+
+        ClipStuff.query_clip_embedding = ClipStuff.model.get_visual_emb_for_img(image)
+
+        children = [
+            parse_contents(c, n)
+            for c, n in zip([content], [name])
+        ]
+
+        figures["umap"] = create_umap(state["stack"][-1]["df"])
+        return children, figures["umap"]
+
+    ClipStuff.reset()
 
 
 @callback(Output("info", "children"), [Input("geomap", "hover_feature")])
@@ -638,17 +685,6 @@ def update_image(value):
 
     image_path = state["children"][int(value)]
     return image_path
-
-
-@callback(Output("image_prompt_vis", "style"), Input("image_prompt", "value"))
-def on_input_image_prompt(url):
-    if url is None:
-        return
-
-    r = requests.get(url, stream=True)
-    img = Image.open(r.raw)
-
-    return {"background-image": f"url({url})"}
 
 
 # #
