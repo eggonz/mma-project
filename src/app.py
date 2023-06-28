@@ -59,7 +59,7 @@ def create_umap(houses):
     color = np.tanh(ClipStuff.ranking / 0.1)
     data = pd.DataFrame({'umapx': umap_coords[:, 0], 'umapy': umap_coords[:, 1], 'rank': color, 'funda_id': filtered_embeddings.get_all_ids()})
 
-    fig = px.scatter(data, x="umapx", y="umapy", color="rank", hover_data=['funda_id'], opacity=0.5)
+    fig = px.scatter(data, x="umapx", y="umapy", color="rank", size=color*2-1, hover_data=['funda_id'], opacity=0.5)
 
     fig.update_layout(
         margin={"r": 0, "t": 0, "l": 0, "b": 0},
