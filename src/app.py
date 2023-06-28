@@ -23,28 +23,6 @@ IMAGES_PATH = "D:/cs/dash/assets/images"
 # #
 
 df = pd.read_pickle(ADS_PATH)
-df["funda"] = df.index
-df = df.rename(columns={
-    "price per m²": "price_per_m2",
-    "latitude": "lat",
-    "longitude": "lon",
-    "construction year": "construction_year",
-    "no. rooms": "nr_rooms",
-    "no. bedrooms": "nr_bedrooms",
-    "no. bathrooms": "nr_bathrooms",
-    "no. stories": "nr_stories",
-    "energy label": "energy_label",
-    "house type": "house_type",
-    "vve contribution": "vve_contribution",
-    "living area (m²)": "living_area_size",
-    "plot size (m²)": "plot_size"
-})
-labels = dict(zip([
-    'A+++++', 'A++++', 'A+++', 'A++', 'A+', 'A',
-    'B', 'C', 'D', 'E', 'F', 'G', 'Not available'
-], range(1, 14)))
-df["energy_label"] = df["energy_label"].map(labels)
-
 
 # print(df[["city", "nr_bedrooms", "energy_label"]])
 
