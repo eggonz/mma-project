@@ -15,9 +15,9 @@ from dash import Dash, Input, Output, callback, ctx, dash_table, dcc, html
 import gpt
 
 ASSETS_PATH = "../assets"
-ADS_PATH = "../data/ads.jsonlines"
+ADS_PATH = "../data/final.pkl"
 EMBEDDINGS_PATH = "../data/embeddings.pkl"
-IMAGES_PATH = "../data/images"
+IMAGES_PATH = "../funda"
 
 # #
 # --------------- Reading in some initial data ----------------
@@ -54,11 +54,11 @@ def create_umap(data):
 # --------------- Global variables ----------------
 # #
 
-# indices = [
-#     42194016, 42194023, 42194046, 42194072, 42194086,
-#     42194088, 42194092, 42194096, 42194098
-# ]
-# df = df[df['funda'].isin(indices)]
+indices = [
+    42194016, 42194023, 42194046, 42194072, 42194086,
+    42194088, 42194092, 42194096, 42194098
+]
+df = df[df['funda'].isin(indices)]
 
 state = {
     "stack": [{"df": df, "prompt": ""}],
@@ -130,6 +130,25 @@ update_maps()
 # --------------- HTML Layout ----------------
 # #
 
+
+def get_info(feature=None):
+    header = [html.H4("House Attributes")]
+    if not feature:
+        return header + [html.P("Hoover over on a house")]
+    elif feature["properties"]["cluster"]:
+        return header + [html.P("Hoover over on a house")]
+    else:
+        return header + ["€ {}".format(feature["properties"]["price"]), html.Br(),
+                     "{} ㎡".format(feature["properties"]["living_area_size"]), html.Br(),
+                     "{} € per ㎡".format(feature["properties"]["price_per_m2"]), html.Br(),
+                     "{} number of rooms".format(feature["properties"]["nr_rooms"]), html.Br(),
+                     "{} number of bedrooms".format(feature["properties"]["nr_bedrooms"])]
+
+
+info = html.Div(children=get_info(), id="info", className="info",
+                style={"position": "absolute", "top": "10px", "right": "10px", "z-index": "1000", "color": "black", "pointer-events":"none"})
+
+
 map = dbc.Card([
     dbc.CardBody([
         html.H4("Map of Houses", className="card-title"),
@@ -148,6 +167,7 @@ map = dbc.Card([
                 zoomToBounds=True,
                 superClusterOptions={"radius": 100},
             ),
+        info
         ], center=(52.1326, 5.2913), zoom=7, style={
             'width': '100%',
             'height': '50vh',
@@ -156,7 +176,6 @@ map = dbc.Card([
         }),
     ], className="content"),
 ])
-
 
 umap = dbc.Card([
     dbc.CardBody([
@@ -208,6 +227,7 @@ prompt_holders = html.Div([
 map_holders = [map, umap]
 
 image_table_holders = html.Div([
+    html.H3("Images of the clicked house"),
     html.Div(id="image_container", className="content"),
 ]),
 
@@ -267,6 +287,14 @@ app.layout = html.Div([
 # #
 # --------------- Callbacks for interactions ----------------
 # #
+
+
+@app.callback(Output("info", "children"), [Input("geomap", "hover_feature")])
+def info_hover(feature):
+    print(feature)
+    return get_info(feature)
+
+
 
 @callback(Output("page-content", "children"), [Input("url", "pathname")])
 def render_page_content(pathname):
