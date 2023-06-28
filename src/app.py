@@ -336,9 +336,15 @@ app.layout = html.Div([
 # #
 
 
-@callback(Output('output-image-upload', 'children'),
-              Input('upload-image', 'contents'),
-              State('upload-image', 'filename'))
+@callback(
+    [
+        Output('output-image-upload', 'children'),
+        Output("umap", "figure", allow_duplicate=True)
+    ],
+    Input('upload-image', 'contents'),
+    State('upload-image', 'filename'),
+    prevent_initial_call=True
+)
 def update_uploaded_image(content, name):
     """
     it replaces the content of output-image-upload with the uploaded image and its name
@@ -347,10 +353,21 @@ def update_uploaded_image(content, name):
     name: name of the uploaded file
     """
     if content is not None:
+        clean_content = re.sub('^data:image/.+;base64,', '', content)
+        decoded_bytes = base64.b64decode(clean_content)
+        image_bytes = io.BytesIO(decoded_bytes)
+        image = Image.open(image_bytes)
+
+        ClipStuff.query_clip_embedding = ClipStuff.model.get_visual_emb_for_img(image)
+
         children = [
             parse_contents(c, n) for c, n in
             zip([content], [name])]
-        return children
+
+        update_maps()
+        return children, figures["umap"]
+
+    ClipStuff.reset()
 
 
 @callback(Output("info", "children"), [Input("geomap", "hover_feature")])
@@ -398,26 +415,6 @@ def on_input_prompt(text_prompt):
         reduced_points,
         prompt_list
     )
-
-@callback(
-    Output("umap", "figure", allow_duplicate=True),
-    Input('upload-image', 'contents'),
-    prevent_initial_call=True,
-)
-def on_input_image(content):
-    if content is None:
-        ClipStuff.reset()
-        return
-
-    clean_content = re.sub('^data:image/.+;base64,', '', content)
-    decoded_bytes = base64.b64decode(clean_content)
-    image_bytes = io.BytesIO(decoded_bytes)
-    image = Image.open(image_bytes)
-
-    ClipStuff.query_clip_embedding = ClipStuff.model.get_visual_emb_for_img(image)
-    update_maps()
-
-    return figures["umap"]
 
 @callback(
     [
