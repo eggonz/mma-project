@@ -1,44 +1,35 @@
-import json
-import pandas as pd
-import plotly.express as px
-import requests
-from PIL import Image
 import base64
+import json
 import os
-from dash import Dash, Input, Output, callback, ctx, dash_table, dcc, html
-from dash_extensions.javascript import arrow_function
+
 import dash_bootstrap_components as dbc
 import dash_leaflet as dl
 import dash_leaflet.express as dlx
-import dash_bootstrap_components as dbc
+import pandas as pd
+import plotly.express as px
+import requests
+from dash_extensions.javascript import arrow_function
+from PIL import Image
 
-ASSETS_PATH = "../assets"
-ADS_PATH = "../data/ads.jsonlines"
-EMBEDDINGS_PATH = "../data/embeddings.pkl"
-IMAGES_PATH = "../funda"
+from dash import Dash, Input, Output, callback, ctx, dash_table, dcc, html
+
+ASSETS_PATH = "./assets"
+ADS_PATH = "./data/funda_processed.pkl"
+EMBEDDINGS_PATH = "./data/embeddings.pkl"
+IMAGES_PATH = "D:/cs/dash/assets/images"
 
 # #
 # --------------- Reading in some initial data ----------------
 # #
 
-with open(ADS_PATH, encoding="utf8") as fp:
-    data = fp.readlines()
-
-parsed = [json.loads(d) for d in data]
-
-df = pd.json_normalize(parsed)
-labels = dict(zip(['A+++++', 'A++++', 'A+++', 'A++', 'A+', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'Not'], range(1, 14)))
-
-df["images"] = df["images_paths"]
-df["lat"] = pd.to_numeric(df["geolocation.lat"])
-df["lon"] = pd.to_numeric(df["geolocation.lon"])
-
-df["funda"] = pd.to_numeric(df["funda_identifier"])
-df["city"] = df["location_part2"].str.split().str[2]
-df["price"] = pd.to_numeric(df["price"].str.split().str[1].str.replace(",", ""), errors="coerce")
-df["living_area_size"] = df["highlights.living area"].str.split().str[0].str.replace(",", "").astype(float)
-df["nr_bedrooms"] = df["highlights.bedrooms"].astype(float)
-df["energy_label"] = df["features.energy.energy label"].str.split().str[0].map(labels)
+df = pd.read_pickle(ADS_PATH)
+df["funda"] = df.index
+df = df.rename(columns={"latitude": "lat", "longitude": "lon"})
+labels = dict(zip([
+    'A+++++', 'A++++', 'A+++', 'A++', 'A+', 'A',
+    'B', 'C', 'D', 'E', 'F', 'G', 'Not available'
+], range(1, 14)))
+df["energy label"] = df["energy label"].map(labels)
 
 
 # print(df[["city", "nr_bedrooms", "energy_label"]])
@@ -48,16 +39,16 @@ df["energy_label"] = df["features.energy.energy label"].str.split().str[0].map(l
 # #
 
 # def create_geomap(data):
-#     fig = px.scatter_mapbox(data, lat="lat", lon="lon", 
-#                             zoom=7, 
+#     fig = px.scatter_mapbox(data, lat="lat", lon="lon",
+#                             zoom=7,
 #                             custom_data=['funda'])
 #     fig.update_layout(mapbox_style="open-street-map", uirevision=True)
 #     fig.update_layout(margin={"r": 0, "t": 0, "l": 0, "b": 0}, showlegend=False)
-    
+
 #     return fig
 
 def create_umap(data):
-    fig = px.scatter(data, x="energy_label", y="nr_bedrooms", custom_data = ['funda'])
+    fig = px.scatter(data, x="energy label", y="no. bedrooms", custom_data=['funda'])
     fig.update_layout(
         margin={"r": 0, "t": 0, "l": 0, "b": 0},
         xaxis={'visible': False, 'showticklabels': False},
@@ -70,12 +61,10 @@ def create_umap(data):
 # --------------- Global variables ----------------
 # #
 
-df = df[[
-    "funda", "images", "lat", "lon", "city", "price",
-    "living_area_size", "nr_bedrooms", "energy_label"
-]]
-
-indices = [42194016, 42194023, 42194046, 42194072, 42194086, 42194088, 42194092, 42194096, 42194098]
+indices = [
+    42194016, 42194023, 42194046, 42194072, 42194086,
+    42194088, 42194092, 42194096, 42194098
+]
 df = df[df['funda'].isin(indices)]
 
 state = {
@@ -98,14 +87,14 @@ app = Dash(__name__, assets_folder=ASSETS_PATH, external_stylesheets=[dbc.themes
 def update_maps():
     houses = state["stack"][-1]["df"]
     figures["umap"] = create_umap(houses)
-    
+
 def reduce_houses(prompt):
     if prompt in {p["prompt"] for p in state["stack"]}:
         return
 
     houses = state["stack"][-1]["df"].query(prompt)
     state["stack"].append({"df": houses, "prompt": prompt})
-    
+
     update_maps()
     return houses
 
@@ -118,18 +107,22 @@ def update_colors(idx):
 
 def update_prompt_list():
     return  html.Ol([
-                html.Li(p["prompt"]) for p in state["stack"][1:]
-            ])
+        html.Li(p["prompt"]) for p in state["stack"][1:]
+    ])
 
 def reset():
-    if len(state["stack"]) > 1:
-        state["stack"] = state["stack"][:1]
-        update_maps()
+    if len(state["stack"]) <= 1:
+        return
+
+    state["stack"] = state["stack"][:1]
+    update_maps()
 
 def undo():
-    if len(state["stack"]) > 1:
-        state["stack"] = state["stack"][:-1]
-        update_maps()
+    if len(state["stack"]) <= 1:
+        return
+
+    state["stack"] = state["stack"][:-1]
+    update_maps()
 
 
 update_maps()
@@ -139,79 +132,79 @@ update_maps()
 # #
 
 map = dbc.Card([
-        dbc.CardBody([
-            html.H4("Map of Houses", className="card-title"),
-            html.P(
-                "Some quick example text to build on the card title and "
-                "make up the bulk of the card's content.",
-                className="card-text",
+    dbc.CardBody([
+        html.H4("Map of Houses", className="card-title"),
+        html.P(
+            "Some quick example text to build on the card title and "
+            "make up the bulk of the card's content.",
+            className="card-text",
+        ),
+        dl.Map([
+            dl.TileLayer(),
+            dl.GeoJSON(
+                data=dlx.dicts_to_geojson(df.to_dict('records')),
+                cluster=True,
+                id="geomap",
+                zoomToBoundsOnClick=True,
+                zoomToBounds=True,
+                superClusterOptions={"radius": 100},
             ),
-            dl.Map([
-                    dl.TileLayer(),
-                    dl.GeoJSON(
-                        data=dlx.dicts_to_geojson(df.to_dict('records')), 
-                        cluster=True, 
-                        id="geomap", 
-                        zoomToBoundsOnClick=True,
-                        zoomToBounds=True,
-                        superClusterOptions={"radius": 100},
-                        ),
-            ], center=(52.1326, 5.2913), zoom=7, style={'width': '100%', 'height': '50vh', 'margin': "auto", "display": "block"}),
-        ], className="content"),
-    ],)
+        ], center=(52.1326, 5.2913), zoom=7, style={
+            'width': '100%',
+            'height': '50vh',
+            'margin': "auto",
+            "display": "block"
+        }),
+    ], className="content"),
+])
 
 
-umap = dbc.Card(
-    [
-        dbc.CardBody(
-            [
-                html.H4("Map of Houses", className="card-title"),
-                html.P(
-                    "Some quick example text to build on the card title and "
-                    "make up the bulk of the card's content.",
-                    className="card-text",
-                ),
-               dcc.Graph(
-                    id="umap",
-                    figure=figures["umap"]
-                )],
-                className="content"
-            ),
-            ], style={'height':'70vh'}
-)
+umap = dbc.Card([
+    dbc.CardBody([
+        html.H4("Map of Houses", className="card-title"),
+        html.P(
+            "Some quick example text to build on the card title and "
+            "make up the bulk of the card's content.",
+            className="card-text",
+        ),
+        dcc.Graph(
+            id="umap",
+            figure=figures["umap"]
+        )
+    ], className="content"),
+], style={'height':'70vh'})
 
 
 prompt_holders = html.Div([
-        html.Div(
+    html.Div(
+        html.Div([
+            html.H3("Enter prompt here:"),
+            dcc.Input(
+                id="prompt", type="text", debounce=True,
+                placeholder="city == 'Amsterdam' or city == 'Rotterdam'"
+            ),
+            html.Div(id="previous_prompts")
+        ]),
+    ),
+    html.Div(
+        html.Div([
             html.Div([
-                html.H3("Enter prompt here:"),
+                html.H3("Enter image URL here:"),
                 dcc.Input(
-                    id="prompt", type="text", debounce=True,
-                    placeholder="city == 'Amsterdam' or city == 'Rotterdam'"
-                ),
-                html.Div(id="previous_prompts")
-            ]),
-        ),
-        html.Div(
-            html.Div([
-                html.Div([
-                    html.H3("Enter image URL here:"),
-                    dcc.Input(
-                        id="image_prompt", type="url", debounce=True,
-                    )
-                ], id="image_inputs"),
-                html.Div(id="image_prompt_vis")
-            ]), style={"margin-top": "30px"}
-        ),
-        html.Div(
-            html.Div([
-                html.Button('Reset', id='reset_button', n_clicks=0),
-                html.Button('Undo', id='undo_button', n_clicks=0)
-            ]),
-            style={"margin-top": "10px"}
-            
-        )
-    ])
+                    id="image_prompt", type="url", debounce=True,
+                )
+            ], id="image_inputs"),
+            html.Div(id="image_prompt_vis")
+        ]), style={"margin-top": "30px"}
+    ),
+    html.Div(
+        html.Div([
+            html.Button('Reset', id='reset_button', n_clicks=0),
+            html.Button('Undo', id='undo_button', n_clicks=0)
+        ]),
+        style={"margin-top": "10px"}
+    )
+])
 
 map_holders = [map, umap]
 
@@ -219,17 +212,13 @@ image_table_holders = html.Div([
     html.Div(id="image_container", className="content"),
 ]),
 
-app_main = dbc.Container(
-    [
-        dbc.Row(
-            [
-                dbc.Col(prompt_holders, width= 3),
-                dbc.Col(map_holders, width = 5),
-                dbc.Col(html.Div(image_table_holders), width= 3),
-            ],  style={'height': '100%'}
-        ),
-    ], fluid = True
-)
+app_main = dbc.Container([
+    dbc.Row([
+        dbc.Col(prompt_holders, width= 3),
+        dbc.Col(map_holders, width = 5),
+        dbc.Col(html.Div(image_table_holders), width= 3),
+    ],  style={'height': '100%'}),
+], fluid=True)
 
 
 # app.layout = html.Div([
@@ -267,7 +256,7 @@ app_main = dbc.Container(
 #         )
 #     ], id="left"),
 #     html.Div([
-#         map, 
+#         map,
 #         umap,
 #     ], id="middle"),
 
@@ -279,7 +268,7 @@ app_main = dbc.Container(
 #         html.Div(
 #             html.Div(
 #                 dash_table.DataTable(
-#                     state["stack"][-1]["df"].drop(columns="images").to_dict("records"),
+#                     state["stack"][-1]["df"].drop(columns="images").to_dict("records")
 #                     page_size=15, id="data_table"
 #                 ),
 #                 className="content"
@@ -329,10 +318,10 @@ sidebar = html.Div(
 content = html.Div(id="page-content", style=CONTENT_STYLE)
 
 app.layout = html.Div([
-                dcc.Location(id="url"), 
-                sidebar, 
-                content
-             ])
+    dcc.Location(id="url"),
+    sidebar,
+    content
+])
 
 # #
 # --------------- Callbacks for interactions ----------------
@@ -364,20 +353,21 @@ def render_page_content(pathname):
     prevent_initial_call=True
 )
 def on_input_prompt(prompt):
-    if prompt is not None:
+    if prompt is None:
+        return
 
-        reduce_houses(prompt)
-        prompt_list = update_prompt_list()
-        
-        reduced_points = df.query(prompt)
-        reduced_points = dlx.dicts_to_geojson(reduced_points.to_dict('records'))
-        
-        return (
-            figures["umap"],
-            reduced_points,
-            prompt_list
-        )
-        
+    reduce_houses(prompt)
+    prompt_list = update_prompt_list()
+
+    reduced_points = df.query(prompt)
+    reduced_points = dlx.dicts_to_geojson(reduced_points.to_dict('records'))
+
+    return (
+        figures["umap"],
+        reduced_points,
+        prompt_list
+    )
+
 @callback(
     [
         Output("umap", "figure", allow_duplicate=True),
@@ -388,12 +378,14 @@ def on_input_prompt(prompt):
     prevent_initial_call=True
 )
 def on_button_undo(n_clicks):
-    if n_clicks is not None:
-        undo()
-        prompt_list = update_prompt_list()
-        points = dlx.dicts_to_geojson(df.to_dict('records'))
-        
-        return figures["umap"], points, prompt_list
+    if n_clicks is None:
+        return
+
+    undo()
+    prompt_list = update_prompt_list()
+    points = dlx.dicts_to_geojson(df.to_dict('records'))
+
+    return figures["umap"], points, prompt_list
 
 @callback(
     [
@@ -405,15 +397,17 @@ def on_button_undo(n_clicks):
     prevent_initial_call=True
 )
 def on_button_reset(n_clicks):
-    if n_clicks is not None:
-        reset()
-        prompt_list = update_prompt_list()
-        points = dlx.dicts_to_geojson(df.to_dict('records'))
-        
-        return figures["umap"], points, prompt_list
+    if n_clicks is None:
+        return
+
+    reset()
+    prompt_list = update_prompt_list()
+    points = dlx.dicts_to_geojson(df.to_dict('records'))
+
+    return figures["umap"], points, prompt_list
 
 @callback(
-    [   
+    [
         Output("umap", "figure"),
         Output("image_container", "children")
     ],
@@ -427,53 +421,65 @@ def on_hover(geo, umap):
         isCluster = geo['properties']['cluster']
         if not isCluster:
             funda, idx = geo['properties']['funda'], 0
-        
+
     if umap is not None and ctx.triggered_id == "umap":
         funda, idx = umap['points'][0]["customdata"][0], umap["points"][0]["pointIndex"]
-        
+
     if idx is None:
         return None
-    
+
     update_colors(idx=idx)
-    
+
     # Use the latest dataframe to get the on hover information.
-    imgs = state["stack"][-1]["df"].loc[state["stack"][-1]["df"]["funda"] == funda, 'images'] 
-    encoded_image = [base64.b64encode(open(f'{IMAGES_PATH}/{img}', 'rb').read()) for img in imgs.iloc[0]]
-    children = [html.Img(src='data:image/png;base64,{}'.format(img.decode()), style = {"height": "300px", "width" : "350px", "margin-left": "20px"}) for img in encoded_image]   
+    df = state["stack"][-1]["df"]
+    imgs = df.loc[df["funda"] == funda, 'images_paths']
+    encoded_image = [
+        base64.b64encode(open(f'{IMAGES_PATH}/{img}', 'rb').read())
+        for img in imgs.iloc[0]
+    ]
+    children = [
+        html.Img(
+            src='data:image/png;base64,{}'.format(img.decode()),
+            style={"height": "300px", "width" : "350px", "margin-left": "20px"}
+        )
+        for img in encoded_image
+    ]
     state["children"] = children
-    
+
     slider = html.Div([
-                dcc.Slider(
-                    id='image-slider',
-                    min=0,
-                    max=len(children) - 1,
-                    value=0,
-                    step = 1,
-                    marks={i: str(i + 1) for i in range(len(children))}
-                ),
-                html.Div(id='image-container')
-            ])
-    
+        dcc.Slider(
+            id='image-slider',
+            min=0,
+            max=len(children) - 1,
+            value=0,
+            step = 1,
+            marks={i: str(i + 1) for i in range(len(children))}
+        ),
+        html.Div(id='image-container')
+    ])
+
     return [figures['umap'], slider]
 
 @app.callback(Output('image-container', 'children'), [Input('image-slider', 'value')])
 def update_image(value):
-    if value is not None:
-        image_path = state["children"][int(value)]
-        
-        return image_path
+    if value is None:
+        return
+
+    image_path = state["children"][int(value)]
+    return image_path
 
 @callback(
     Output("image_prompt_vis", "style"),
     Input("image_prompt", "value")
 )
 def on_input_image_prompt(url):
-    if url is not None:
+    if url is None:
+        return
 
-        r = requests.get(url, stream=True)
-        img = Image.open(r.raw)
+    r = requests.get(url, stream=True)
+    img = Image.open(r.raw)
 
-        return {"background-image": f"url({url})"}
+    return {"background-image": f"url({url})"}
 
 # #
 # --------------- Main ----------------
