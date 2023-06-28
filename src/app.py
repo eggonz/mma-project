@@ -10,14 +10,17 @@ import plotly.express as px
 import requests
 from dash_extensions.javascript import arrow_function
 from PIL import Image
-from dash import Dash, Input, Output, callback, ctx, dash_table, dcc, html
 
 import gpt
+from dash import Dash, Input, Output, callback, ctx, dash_table, dcc, html
 
-ASSETS_PATH = "../assets"
-ADS_PATH = "../data/ads.jsonlines"
-EMBEDDINGS_PATH = "../data/embeddings.pkl"
-IMAGES_PATH = "../data/images"
+ASSETS_PATH = os.getenv("ASSETS_PATH")
+ADS_PATH = os.getenv("ADS_PATH")
+EMBEDDINGS_PATH = os.getenv("EMBEDDINGS_PATH")
+IMAGES_PATH = os.getenv("IMAGES_PATH")
+
+# Comment this line if you want to use true GPT (need API key)
+gpt.get_pandas_query = gpt.get_pretty_prompt = lambda x: x
 
 # #
 # --------------- Reading in some initial data ----------------
@@ -71,7 +74,11 @@ figures = {
     "umap": None
 }
 
-app = Dash(__name__, assets_folder=ASSETS_PATH, external_stylesheets=[dbc.themes.DARKLY])
+app = Dash(
+    __name__,
+    assets_folder=ASSETS_PATH,
+    external_stylesheets=[dbc.themes.DARKLY]
+)
 
 # #
 # --------------- State changing functions ----------------
@@ -299,7 +306,7 @@ def on_input_prompt(text_prompt):
     reduce_houses(text_prompt)
     prompt_list = update_prompt_list()
 
-    reduced_points = state["stack"][-1]["df"].query(prompt)
+    reduced_points = state["stack"][-1]["df"].query(text_prompt)
     reduced_points = dlx.dicts_to_geojson(reduced_points.to_dict('records'))
 
     return (
