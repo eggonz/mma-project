@@ -408,11 +408,11 @@ mini_plot_holder = dbc.Stack(
         dbc.Card(
             dbc.CardBody(
                 [
-                    html.H4("Histogram of Prices", className="card-title"),
+                    html.H6("Histogram of Prices", className="card-title"),
                     dcc.Graph(
                         id="histo",
                         figure=figures["histo"],
-                        style={"width": "100%", "height": "60%"},
+                        style={"width": "100%", "height": "24vh"},
                     ),
                 ]
             )
@@ -420,11 +420,11 @@ mini_plot_holder = dbc.Stack(
         dbc.Card(
             dbc.CardBody(
                 [
-                    html.H4("Pie Chart of Energy Labels", className="card-title"),
+                    html.H6("Pie Chart of Energy Labels", className="card-title"),
                     dcc.Graph(
                         id="pie",
                         figure=figures["pie"],
-                        style={"width": "100%", "height": "60%"},
+                        style={"width": "100%", "height": "24vh"},
                     ),
                 ]
             )
@@ -432,13 +432,13 @@ mini_plot_holder = dbc.Stack(
         dbc.Card(
             dbc.CardBody(
                 [
-                    html.H4(
+                    html.H6(
                         "Scatterplot of Prices and Living Space", className="card-title"
                     ),
                     dcc.Graph(
                         id="scatter",
                         figure=figures["scatter"],
-                        style={"width": "100%", "height": "60%"},
+                        style={"width": "100%", "height": "24vh"},
                     ),
                 ]
             )
