@@ -202,9 +202,9 @@ def parse_contents(contents, filename):
 def get_info(feature=None):
     header = [html.H4("House Attributes")]
     if not feature:
-        return header + [html.P("Hoover over on a house")]
+        return header + [html.P("Hover over a house")]
     elif feature["properties"]["cluster"]:
-        return header + [html.P("Hoover over on a house")]
+        return header + [html.P("Hover over a house")]
     else:
         return header + [
             "€ {}".format(feature["properties"]["price"]),
@@ -213,9 +213,9 @@ def get_info(feature=None):
             html.Br(),
             "{} € per ㎡".format(feature["properties"]["price_per_m2"]),
             html.Br(),
-            "{} number of rooms".format(feature["properties"]["nr_rooms"]),
+            "{} rooms".format(feature["properties"]["nr_rooms"]),
             html.Br(),
-            "{} number of bedrooms".format(feature["properties"]["nr_bedrooms"]),
+            "{} bedrooms".format(feature["properties"]["nr_bedrooms"]),
         ]
 
 
