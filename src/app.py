@@ -10,7 +10,7 @@ import plotly.express as px
 import requests
 from dash_extensions.javascript import arrow_function
 from PIL import Image
-from dash import Dash, Input, Output, callback, ctx, dash_table, dcc, html
+from dash import Dash, Input, State, Output, callback, ctx, dash_table, dcc, html
 
 import gpt
 
@@ -41,7 +41,7 @@ df = pd.read_pickle(ADS_PATH)
 #     return fig
 
 def create_umap(data):
-    fig = px.scatter(data, x="energy_label", y="nr_bedrooms", custom_data=['funda'])
+    fig = px.scatter(data, x="energy_label", y="nr_bedrooms", custom_data=['funda'], width=400, height=400)
     fig.update_layout(
         margin={"r": 0, "t": 0, "l": 0, "b": 0},
         xaxis={'visible': False, 'showticklabels': False},
@@ -130,6 +130,13 @@ update_maps()
 # --------------- HTML Layout ----------------
 # #
 
+def parse_contents(contents, filename):
+    return html.Div([
+        html.H5(filename),
+        # HTML images accept base64 encoded strings in the same format
+        # that is supplied by the upload
+        html.Img(src=contents, style = {"width": "100px", "height": "100px"}),
+        html.Hr()])
 
 def get_info(feature=None):
     header = [html.H4("House Attributes")]
@@ -190,7 +197,7 @@ umap = dbc.Card([
             figure=figures["umap"]
         )
     ], className="content"),
-], style={'height':'70vh'})
+])
 
 
 prompt_holders = html.Div([
@@ -204,17 +211,26 @@ prompt_holders = html.Div([
             html.Div(id="previous_prompts")
         ]),
     ),
-    html.Div(
-        html.Div([
-            html.Div([
-                html.H3("Enter image URL here:"),
-                dcc.Input(
-                    id="image_prompt", type="url", debounce=True,
-                )
-            ], id="image_inputs"),
-            html.Div(id="image_prompt_vis")
-        ]), style={"margin-top": "30px"}
+    html.Div([
+    dcc.Upload(
+        id='upload-image',
+        children=html.Div([
+            'Upload an image ',
+        ]),
+        style={
+            'width': '100%',
+            'height': '60px',
+            'lineHeight': '60px',
+            'borderWidth': '1px',
+            'borderStyle': 'dashed',
+            'borderRadius': '5px',
+            'textAlign': 'center',
+            'margin': '10px'
+        },
+        multiple=False
     ),
+    html.Div(id='output-image-upload'),
+    ]),
     html.Div(
         html.Div([
             html.Button('Reset', id='reset_button', n_clicks=0),
@@ -227,15 +243,15 @@ prompt_holders = html.Div([
 map_holders = [map, umap]
 
 image_table_holders = html.Div([
-    html.H3("Images of the clicked house"),
+    html.H3("Images of the clicked house", style= {"margin-left": "10px"}),
     html.Div(id="image_container", className="content"),
 ]),
 
 app_main = dbc.Container([
     dbc.Row([
-        dbc.Col(prompt_holders, width= 3),
-        dbc.Col(map_holders, width = 5),
-        dbc.Col(html.Div(image_table_holders), width= 3),
+        dbc.Col(prompt_holders, width= 2),
+        dbc.Col(map_holders, width = 6, style = {"margin-left": "30px"}),
+        dbc.Col(image_table_holders, width= 3),
     ],  style={'height': '100%'}),
 ], fluid=True)
 
@@ -245,28 +261,26 @@ SIDEBAR_STYLE = {
     "top": 0,
     "left": 0,
     "bottom": 0,
-    "width": "10rem",
+    "width": "5rem",
     "padding": "2rem 1rem",
 }
 
 # the styles for the main content position it to the right of the sidebar and
 # add some padding.
 CONTENT_STYLE = {
-    "margin-left": "18rem",
+    "margin-left": "12rem",
     "margin-right": "2rem",
     "padding": "2rem 1rem",
 }
 
 sidebar = html.Div(
     [
-        html.H2("Sidebar", className="display-4"),
-        html.Hr(),
         html.P(
-            "A simple sidebar layout with navigation links", className="lead"
+            "Change from exploration to analysis", className="lead"
         ),
         dbc.Nav(
             [
-                dbc.NavLink("Home", href="/", active="exact"),
+                dbc.NavLink("Exploration", href="/", active="exact"),
                 dbc.NavLink("Analysis", href="/analysis", active="exact"),
             ],
             vertical=True,
@@ -289,9 +303,19 @@ app.layout = html.Div([
 # #
 
 
-@app.callback(Output("info", "children"), [Input("geomap", "hover_feature")])
+@callback(Output('output-image-upload', 'children'),
+              Input('upload-image', 'contents'),
+              State('upload-image', 'filename'))
+def update_output(list_of_contents, list_of_names):
+    if list_of_contents is not None:
+        children = [
+            parse_contents(c, n) for c, n in
+            zip([list_of_contents], [list_of_names])]
+        return children
+    
+
+@callback(Output("info", "children"), [Input("geomap", "hover_feature")])
 def info_hover(feature):
-    print(feature)
     return get_info(feature)
 
 
@@ -327,7 +351,7 @@ def on_input_prompt(text_prompt):
     reduce_houses(text_prompt)
     prompt_list = update_prompt_list()
 
-    reduced_points = state["stack"][-1]["df"].query(prompt)
+    reduced_points = state["stack"][-1]["df"].query(text_prompt)
     reduced_points = dlx.dicts_to_geojson(reduced_points.to_dict('records'))
 
     return (
@@ -408,7 +432,7 @@ def on_hover(geo, umap):
     children = [
         html.Img(
             src='data:image/png;base64,{}'.format(img.decode()),
-            style={"height": "300px", "width" : "350px", "margin-left": "20px"}
+            style={"height": "200px", "width" : "200px", "margin-left": "20px"}
         )
         for img in encoded_image
     ]
