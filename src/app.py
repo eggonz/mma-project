@@ -1,5 +1,4 @@
 import json
-
 import pandas as pd
 import plotly.express as px
 import requests
@@ -7,6 +6,10 @@ from PIL import Image
 import base64
 import os
 from dash import Dash, Input, Output, callback, ctx, dash_table, dcc, html
+from dash_extensions.javascript import arrow_function
+import dash_bootstrap_components as dbc
+import dash_leaflet as dl
+import dash_leaflet.express as dlx
 import dash_bootstrap_components as dbc
 
 ASSETS_PATH = "../assets"
@@ -44,14 +47,14 @@ df["energy_label"] = df["features.energy.energy label"].str.split().str[0].map(l
 # --------------- Functions for creating the plotly plots ----------------
 # #
 
-def create_geomap(data):
-    fig = px.scatter_mapbox(data, lat="lat", lon="lon", 
-                            zoom=7, 
-                            custom_data=['funda'])
-    fig.update_layout(mapbox_style="open-street-map", uirevision=True)
-    fig.update_layout(margin={"r": 0, "t": 0, "l": 0, "b": 0}, showlegend=False)
-    return fig
-
+# def create_geomap(data):
+#     fig = px.scatter_mapbox(data, lat="lat", lon="lon", 
+#                             zoom=7, 
+#                             custom_data=['funda'])
+#     fig.update_layout(mapbox_style="open-street-map", uirevision=True)
+#     fig.update_layout(margin={"r": 0, "t": 0, "l": 0, "b": 0}, showlegend=False)
+    
+#     return fig
 
 def create_umap(data):
     fig = px.scatter(data, x="energy_label", y="nr_bedrooms", custom_data = ['funda'])
@@ -60,9 +63,8 @@ def create_umap(data):
         xaxis={'visible': False, 'showticklabels': False},
         yaxis={'visible': False, 'showticklabels': False}
     )
-    print(data.shape)
-    return fig
 
+    return fig
 
 # #
 # --------------- Global variables ----------------
@@ -87,56 +89,42 @@ figures = {
     "umap": None
 }
 
-app = Dash(__name__, assets_folder=ASSETS_PATH, external_stylesheets= [dbc.themes.DARKLY])
-
+app = Dash(__name__, assets_folder=ASSETS_PATH, external_stylesheets=[dbc.themes.DARKLY])
 
 # #
 # --------------- State changing functions ----------------
 # #
 
+def update_maps():
+    houses = state["stack"][-1]["df"]
+    figures["umap"] = create_umap(houses)
+    
 def reduce_houses(prompt):
-    print("run1")
     if prompt in {p["prompt"] for p in state["stack"]}:
         return
-    print("run2")
 
     houses = state["stack"][-1]["df"].query(prompt)
     state["stack"].append({"df": houses, "prompt": prompt})
-
+    
     update_maps()
-
-
-def update_maps():
-    houses = state["stack"][-1]["df"]
-    figures["geomap"] = create_geomap(houses)
-    figures["umap"] = create_umap(houses)
-
+    return houses
 
 def update_colors(idx):
     color = ["blue"] * len(state["stack"][-1]["df"])
     if idx is not None:
         color[idx] = "red"
-    # color = [
-    #     ("red" if i == idx else "blue")
-    #     for i in range(len(state["stack"][-1]["df"]))
-    # ]
 
-    figures["geomap"] = figures["geomap"].update_traces(marker=dict(color=color))
     figures["umap"] = figures["umap"].update_traces(marker=dict(color=color))
 
-
 def update_prompt_list():
-    return html.Ol([
-        html.Li(p["prompt"])
-        for p in state["stack"][1:]
-    ])
-
+    return  html.Ol([
+                html.Li(p["prompt"]) for p in state["stack"][1:]
+            ])
 
 def reset():
     if len(state["stack"]) > 1:
         state["stack"] = state["stack"][:1]
         update_maps()
-
 
 def undo():
     if len(state["stack"]) > 1:
@@ -150,24 +138,27 @@ update_maps()
 # --------------- HTML Layout ----------------
 # #
 
-map  = dbc.Card(
-    [
-        dbc.CardBody(
-            [
-                html.H4("Map of Houses", className="card-title"),
-                html.P(
-                    "Some quick example text to build on the card title and "
-                    "make up the bulk of the card's content.",
-                    className="card-text",
-                ),
-                dcc.Graph(
-                    id="geomap",
-                    figure=figures["geomap"]
-                )],
-                className="content"
+map = dbc.Card([
+        dbc.CardBody([
+            html.H4("Map of Houses", className="card-title"),
+            html.P(
+                "Some quick example text to build on the card title and "
+                "make up the bulk of the card's content.",
+                className="card-text",
             ),
-            ],
-)
+            dl.Map([
+                    dl.TileLayer(),
+                    dl.GeoJSON(
+                        data=dlx.dicts_to_geojson(df.to_dict('records')), 
+                        cluster=True, 
+                        id="geomap", 
+                        zoomToBoundsOnClick=True,
+                        zoomToBounds=True,
+                        superClusterOptions={"radius": 100},
+                        ),
+            ], center=(52.1326, 5.2913), zoom=7, style={'width': '100%', 'height': '50vh', 'margin': "auto", "display": "block"}),
+        ], className="content"),
+    ],)
 
 
 umap = dbc.Card(
@@ -223,8 +214,6 @@ prompt_holders = html.Div([
     ])
 
 map_holders = [map, umap]
-
-                
 
 image_table_holders = html.Div([
     html.Div(id="image_container", className="content"),
@@ -339,12 +328,15 @@ sidebar = html.Div(
 
 content = html.Div(id="page-content", style=CONTENT_STYLE)
 
-app.layout = html.Div([dcc.Location(id="url"), sidebar, content])
+app.layout = html.Div([
+                dcc.Location(id="url"), 
+                sidebar, 
+                content
+             ])
 
 # #
 # --------------- Callbacks for interactions ----------------
 # #
-
 
 @callback(Output("page-content", "children"), [Input("url", "pathname")])
 def render_page_content(pathname):
@@ -362,129 +354,130 @@ def render_page_content(pathname):
         className="p-3 bg-light rounded-3",
     )
 
-
-@callback(
-    [   
-        Output("umap", "figure"),
-        Output("geomap", "figure"),
-        Output("image_container", "children")
-    ],
-    Input("geomap", "hoverData"),
-    Input("umap", "hoverData"),
-    prevent_initial_call=True
-)
-def on_hover(geo, umap):
-    idx = None
-    if geo is not None and ctx.triggered_id == "geomap":
-        # This is the funda identifier
-        funda, idx = geo['points'][0]["customdata"][0], geo["points"][0]["pointIndex"]
-    if umap is not None and ctx.triggered_id == "umap":
-        funda, idx = umap['points'][0]["customdata"][0], umap["points"][0]["pointIndex"]
-    if idx is None:
-        return None
-    update_colors(idx=idx)
-    # Use the latest dataframe to get the on hover information.
-    imgs = state["stack"][-1]["df"].loc[state["stack"][-1]["df"]["funda"] == funda, 'images'] 
-    encoded_image = [base64.b64encode(open(f'{IMAGES_PATH}/{img}', 'rb').read()) for img in imgs.iloc[0]]
-    children = [html.Img(src='data:image/png;base64,{}'.format(img.decode()), style = {"height": "300px", "width" : "350px", "margin-left": "20px"}) for img in encoded_image]   
-    state["children"] = children
-    slider = html.Div([
-    dcc.Slider(
-        id='image-slider',
-        min=0,
-        max=len(children) - 1,
-        value=0,
-        step = 1,
-        marks={i: str(i + 1) for i in range(len(children))}
-    ),
-    html.Div(id='image-container')
-])
-    return [figures['umap'], figures['geomap'], slider]
-
-
-@app.callback(
-Output('image-container', 'children'),
-[Input('image-slider', 'value')]
-)
-def update_image(value):
-    image_path = state["children"][int(value)]
-    return image_path
-
 @callback(
     [
         Output("umap", "figure", allow_duplicate=True),
-        Output("geomap", "figure", allow_duplicate=True),
+        Output("geomap", "data", allow_duplicate=True),
         Output("previous_prompts", "children", allow_duplicate=True)
     ],
     Input("prompt", "value"),
     prevent_initial_call=True
 )
 def on_input_prompt(prompt):
-    if prompt is None:
-        return
+    if prompt is not None:
 
-    reduce_houses(prompt)
-    prompt_list = update_prompt_list()
-    return (
-        figures["umap"],
-        figures["geomap"],
-        # state["stack"][-1]["df"].drop(columns="images").to_dict("records"),
-        prompt_list
-    )
-
-
-@callback(
-    Output("image_prompt_vis", "style"),
-    Input("image_prompt", "value")
-)
-def on_input_image_prompt(url):
-    if url is None:
-        return
-
-    print("New image prompt!")
-
-    r = requests.get(url, stream=True)
-    img = Image.open(r.raw)
-
-    return {
-        "background-image": f"url({url})"
-    }
-
-
+        reduce_houses(prompt)
+        prompt_list = update_prompt_list()
+        
+        reduced_points = df.query(prompt)
+        reduced_points = dlx.dicts_to_geojson(reduced_points.to_dict('records'))
+        
+        return (
+            figures["umap"],
+            reduced_points,
+            prompt_list
+        )
+        
 @callback(
     [
         Output("umap", "figure", allow_duplicate=True),
-        Output("geomap", "figure", allow_duplicate=True),
-        Output("previous_prompts", "children", allow_duplicate=True)
-    ],
-    Input("reset_button", "n_clicks"),
-    prevent_initial_call=True
-)
-def on_button_reset(n_clicks):
-    reset()
-    prompt_list = update_prompt_list()
-    return figures["umap"], figures["geomap"], prompt_list
-
-
-@callback(
-    [
-        Output("umap", "figure", allow_duplicate=True),
-        Output("geomap", "figure", allow_duplicate=True),
+        Output("geomap", "data", allow_duplicate=True),
         Output("previous_prompts", "children", allow_duplicate=True)
     ],
     Input("undo_button", "n_clicks"),
     prevent_initial_call=True
 )
 def on_button_undo(n_clicks):
-    undo()
-    prompt_list = update_prompt_list()
-    return figures["umap"], figures["geomap"], prompt_list
+    if n_clicks is not None:
+        undo()
+        prompt_list = update_prompt_list()
+        points = dlx.dicts_to_geojson(df.to_dict('records'))
+        
+        return figures["umap"], points, prompt_list
 
+@callback(
+    [
+        Output("umap", "figure", allow_duplicate=True),
+        Output("geomap", "data", allow_duplicate=True),
+        Output("previous_prompts", "children", allow_duplicate=True)
+    ],
+    Input("reset_button", "n_clicks"),
+    prevent_initial_call=True
+)
+def on_button_reset(n_clicks):
+    if n_clicks is not None:
+        reset()
+        prompt_list = update_prompt_list()
+        points = dlx.dicts_to_geojson(df.to_dict('records'))
+        
+        return figures["umap"], points, prompt_list
+
+@callback(
+    [   
+        Output("umap", "figure"),
+        Output("image_container", "children")
+    ],
+    Input("geomap", "hover_feature"),
+    Input("umap", "hoverData"),
+    prevent_initial_call=True
+)
+def on_hover(geo, umap):
+    idx = None
+    if geo is not None and ctx.triggered_id == "geomap":
+        isCluster = geo['properties']['cluster']
+        if not isCluster:
+            funda, idx = geo['properties']['funda'], 0
+        
+    if umap is not None and ctx.triggered_id == "umap":
+        funda, idx = umap['points'][0]["customdata"][0], umap["points"][0]["pointIndex"]
+        
+    if idx is None:
+        return None
+    
+    update_colors(idx=idx)
+    
+    # Use the latest dataframe to get the on hover information.
+    imgs = state["stack"][-1]["df"].loc[state["stack"][-1]["df"]["funda"] == funda, 'images'] 
+    encoded_image = [base64.b64encode(open(f'{IMAGES_PATH}/{img}', 'rb').read()) for img in imgs.iloc[0]]
+    children = [html.Img(src='data:image/png;base64,{}'.format(img.decode()), style = {"height": "300px", "width" : "350px", "margin-left": "20px"}) for img in encoded_image]   
+    state["children"] = children
+    
+    slider = html.Div([
+                dcc.Slider(
+                    id='image-slider',
+                    min=0,
+                    max=len(children) - 1,
+                    value=0,
+                    step = 1,
+                    marks={i: str(i + 1) for i in range(len(children))}
+                ),
+                html.Div(id='image-container')
+            ])
+    
+    return [figures['umap'], slider]
+
+@app.callback(Output('image-container', 'children'), [Input('image-slider', 'value')])
+def update_image(value):
+    if value is not None:
+        image_path = state["children"][int(value)]
+        
+        return image_path
+
+@callback(
+    Output("image_prompt_vis", "style"),
+    Input("image_prompt", "value")
+)
+def on_input_image_prompt(url):
+    if url is not None:
+
+        r = requests.get(url, stream=True)
+        img = Image.open(r.raw)
+
+        return {"background-image": f"url({url})"}
 
 # #
 # --------------- Main ----------------
 # #
 
 if __name__ == '__main__':
-
     app.run_server(debug=True)
