@@ -1,22 +1,25 @@
 import base64
-import json
-import os
+import io
+import re
 
 import dash_bootstrap_components as dbc
 import dash_leaflet as dl
 import dash_leaflet.express as dlx
+import matplotlib.cm as cm
+import numpy as np
 import pandas as pd
 import plotly.express as px
 import requests
-from dash_extensions.javascript import arrow_function
 from PIL import Image
-from dash import Dash, Input, State, Output, callback, ctx, dash_table, dcc, html
+from dash import Dash, Input, State, Output, callback, ctx, dcc, html
 
 import gpt
+from clip import load_clip_model, compute_emb_distances
+from dataset import FundaPrecomputedEmbeddings
 
 ASSETS_PATH = "../assets"
 ADS_PATH = "../data/final.pkl"
-EMBEDDINGS_PATH = "../data/embeddings.pkl"
+EMBEDDINGS_PATH = "../data/clip_embeddings/full_embeddings.pkl"
 IMAGES_PATH = "../funda"
 
 # #
@@ -40,8 +43,25 @@ df = pd.read_pickle(ADS_PATH)
 
 #     return fig
 
-def create_umap(data):
-    fig = px.scatter(data, x="energy_label", y="nr_bedrooms", custom_data=['funda'], width=400, height=400)
+
+def create_umap(image_paths):
+
+    filtered_embeddings = ClipStuff.dataset_clip_embeddings[image_paths]
+    umap_coords = filtered_embeddings.get_all_umaps()
+
+    # if ClipStuff.query_clip_embedding is None:
+    #     colors = cm.get_cmap('viridis')(np.ones_like(umap_coords[:, 0])*0.5)
+    # else:
+    #     ranking = compute_emb_distances(ClipStuff.query_clip_embedding, filtered_embeddings.get_all_embeddings())
+    #     # ranking is between [-1,1], transform it to a color range in a cmap
+    #     ranking = (ranking + 1) / 2
+    #     colors = cm.get_cmap('viridis')(ranking)
+    #
+    # print(colors.shape)
+
+    print(umap_coords.shape, umap_coords[:, 0].shape, umap_coords[:, 1].shape)
+
+    fig = px.scatter(x=umap_coords[:, 0], y=umap_coords[:, 1], opacity=0.5)  # , color=colors)
     fig.update_layout(
         margin={"r": 0, "t": 0, "l": 0, "b": 0},
         xaxis={'visible': False, 'showticklabels': False},
@@ -70,6 +90,13 @@ figures = {
     "geomap": None,
     "umap": None
 }
+
+
+class ClipStuff:
+    model = load_clip_model()
+    query_clip_embedding = None
+    dataset_clip_embeddings = FundaPrecomputedEmbeddings.from_pickle(EMBEDDINGS_PATH)
+
 
 app = Dash(__name__, assets_folder=ASSETS_PATH, external_stylesheets=[dbc.themes.DARKLY])
 
@@ -306,11 +333,24 @@ app.layout = html.Div([
 @callback(Output('output-image-upload', 'children'),
               Input('upload-image', 'contents'),
               State('upload-image', 'filename'))
-def update_output(list_of_contents, list_of_names):
-    if list_of_contents is not None:
+def update_uploaded_image(content, name):
+    """
+    it replaces the content of output-image-upload with the uploaded image and its name
+
+    content: image encoded in str, base64 encoding of the image
+    name: name of the uploaded file
+    """
+    if content is not None:
+        clean_content = re.sub('^data:image/.+;base64,', '', content)
+        decoded_bytes = base64.b64decode(clean_content)
+        image_bytes = io.BytesIO(decoded_bytes)
+        image = Image.open(image_bytes)
+
+        ClipStuff.query_clip_embedding = ClipStuff.model.get_visual_emb_for_img(image)
+
         children = [
             parse_contents(c, n) for c, n in
-            zip([list_of_contents], [list_of_names])]
+            zip([content], [name])]
         return children
     
 

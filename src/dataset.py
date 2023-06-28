@@ -73,7 +73,10 @@ class FundaPrecomputedEmbeddings:
     def __len__(self) -> int:
         return len(self.df)
 
-    def filter(self, selected_ids: list[int]) -> FundaPrecomputedEmbeddings:
+    def __getitem__(self, item) -> FundaPrecomputedEmbeddings:
+        return FundaPrecomputedEmbeddings(self.df[item].copy())
+
+    def filter_ids(self, selected_ids: list[int]) -> FundaPrecomputedEmbeddings:
         """
         Filters the embeddings using a list of selected ids
         Returns a new FundaEmbeddings object
