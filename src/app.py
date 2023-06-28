@@ -417,8 +417,8 @@ def on_button_reset(n_clicks):
         Output("umap", "figure"),
         Output("image_container", "children")
     ],
-    Input("geomap", "hover_feature"),
-    Input("umap", "hoverData"),
+    Input("geomap", "click_feature"),
+    Input("umap", "clickData"),
     prevent_initial_call=True
 )
 def on_hover(geo, umap):
