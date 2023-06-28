@@ -112,7 +112,7 @@ figures = {
 app = Dash(
     __name__,
     assets_folder=ASSETS_PATH,
-    external_stylesheets=[dbc.themes.DARKLY]
+    external_stylesheets=[dbc.themes.LITERA]
 )
 
 # #
@@ -185,10 +185,9 @@ update_plots(df)
 
 def parse_contents(contents, filename):
     return html.Div([
-        html.H5(filename),
         # HTML images accept base64 encoded strings in the same format
         # that is supplied by the upload
-        html.Img(src=contents, style = {"width": "100px", "height": "100px"}),
+        html.Img(src=contents, style = {"width": "100%", "height": "100%", 'margin-top': '10px'}),
         html.Hr()])
 
 def get_info(feature=None):
@@ -207,21 +206,11 @@ def get_info(feature=None):
         ]
 
 
-info = html.Div(
-    children=get_info(),
-    id="info",
-    className="info",
-    style={
-        "position": "absolute",
-        "top": "10px",
-        "right": "10px",
-        "z-index": "1000",
-        "color": "black",
-        "pointer-events":"none"
-    }
-)
+info = html.Div(children=get_info(), id="info", className="info",
+                style={"position": "absolute", "top": "10px", "right": "10px", "z-index": "1000", "color": "black", "pointer-events":"none"})
 
-map = dbc.Card([
+
+map = html.Div([dbc.Card([
     dbc.CardBody([
         html.H4("Map of Houses", className="card-title"),
         html.P(
@@ -242,39 +231,36 @@ map = dbc.Card([
         info
         ], center=(52.1326, 5.2913), zoom=7, style={
             'width': '100%',
-            'height': '50vh',
+            'height': '70vh',
             'margin': "auto",
             "display": "block"
-        }, id="mapstate"),
-    ], className="content"),
-])
+        }),
+    ]),
+])])
 
-umap = dbc.Card([
-    dbc.CardBody([
-        html.H4("Map of Houses", className="card-title"),
-        html.P(
-            "Some quick example text to build on the card title and "
-            "make up the bulk of the card's content.",
-            className="card-text",
-        ),
-        dcc.Graph(
-            id="umap",
-            figure=figures["umap"]
-        )
-    ], className="content"),
-])
+umap = html.Div([dbc.Card([
+                dbc.CardBody([
+                    html.H4("UMAP of Image embeddings", className="card-title"),
+                    dcc.Graph(
+                        id="umap",
+                        figure=figures["umap"]
+                        ,  style = {"width" : "100%", "height" : "60%"}
+                    )
+                ]),
+        ])])
 
 
 prompt_holders = html.Div([
     html.Div(
         html.Div([
-            html.H3("Enter prompt here:"),
+            html.H4("GPT Prompt:"),
             dcc.Input(
                 id="text_prompt", type="text", debounce=True,
-                placeholder="I want a house in Amsterdam or in Rotterdam"
+                placeholder="I want a house in Amsterdam or in Rotterdam",
+                style = {'width': '100%'}
             ),
             html.Div(id="previous_prompts")
-        ]),
+        ]), style = {'width': '100%', 'margin-bottom': '20px'}
     ),
     html.Div([
     dcc.Upload(
@@ -284,13 +270,13 @@ prompt_holders = html.Div([
         ]),
         style={
             'width': '100%',
-            'height': '60px',
+            'height': '70px',
             'lineHeight': '60px',
             'borderWidth': '1px',
             'borderStyle': 'dashed',
             'borderRadius': '5px',
             'textAlign': 'center',
-            'margin': '10px'
+            'margin': '0px'
         },
         multiple=False
     ),
@@ -298,82 +284,63 @@ prompt_holders = html.Div([
     ]),
     html.Div(
         html.Div([
-            html.Button('Reset', id='reset_button', n_clicks=0),
-            html.Button('Undo', id='undo_button', n_clicks=0)
+            dbc.Button('Reset', id='reset_button', n_clicks=0, style= {"margin-right" : "5px"}),
+            dbc.Button('Undo', id='undo_button', n_clicks=0)
         ]),
         style={"margin-top": "10px"}
     )
-])
+], style= {"margin-left" : "10px"})
 
-map_holders = [map, umap]
+map_meta_data = dbc.Stack([map, html.Div("Meta Data Comes Here")])
 
-image_table_holders = html.Div([
-    html.H3("Images of the clicked house", style= {"margin-left": "10px"}),
-    html.Div(id="image_container", className="content"),
-    dcc.Graph(
-        id="histo",
-        figure=figures["histo"]
-    ),
-    dcc.Graph(
-        id="pie",
-        figure=figures["pie"]
-    ),
-    dcc.Graph(
-        id="scatter",
-        figure=figures["scatter"]
+imgs_placeholder = ["42194016/image1.jpeg", "42194016/image2.jpeg", "42194016/image3.jpeg", "42194016/image4.jpeg" ,"42194016/image5.jpeg"]
+encoded_image = [
+        base64.b64encode(open(f'{IMAGES_PATH}/{img}', 'rb').read())
+        for img in imgs_placeholder
+    ]
+children = [
+        html.Img(
+            src='data:image/png;base64,{}'.format(img.decode()),
+            style={"height": "100%", "width" : "100%"}
+        )
+        for img in encoded_image
+    ]
+state["children"] = children
+slider = html.Div([
+        dcc.Slider(
+            id='image-slider',
+            min=0,
+            max=len(children) - 1,
+            value=0,
+            step = 1,
+            marks={i: str(i + 1) for i in range(len(children))}
+        ),
+        html.Div(id='image-container')
+    ], style = {"width" : "100%", "height" : "100%"})
+
+image_table_holders = dbc.Card(
+        dbc.CardBody(
+            [html.H4("Images of the clicked house", style= {"margin-left": "10px"}),
+        html.Div(id="image_container", children = slider)
+    ])
     )
+
+image_umap = html.Div([image_table_holders, umap])
+
+app_main = html.Div([
+
+                dbc.Row(
+                    [
+                        dbc.Col(prompt_holders, align = "start", width = 2),
+                        dbc.Col(map_meta_data, align = "start", width = 4),
+                        dbc.Col(image_umap, align = "start", width = 4),
+                        dbc.Col(html.Div("One of three columns"), width = 2)
+                    ], align='center'
+                )
 ])
 
-app_main = dbc.Container([
-    dbc.Row([
-        dbc.Col(prompt_holders, width=2),
-        dbc.Col(map_holders, width=6, style = {"margin-left": "30px"}),
-        dbc.Col(image_table_holders, width=3),
-    ],  style={'height': '100%'}),
-], fluid=True)
 
-
-SIDEBAR_STYLE = {
-    "position": "fixed",
-    "top": 0,
-    "left": 0,
-    "bottom": 0,
-    "width": "5rem",
-    "padding": "2rem 1rem",
-}
-
-# the styles for the main content position it to the right of the sidebar and
-# add some padding.
-CONTENT_STYLE = {
-    "margin-left": "12rem",
-    "margin-right": "2rem",
-    "padding": "2rem 1rem",
-}
-
-sidebar = html.Div(
-    [
-        html.P(
-            "Change from exploration to analysis", className="lead"
-        ),
-        dbc.Nav(
-            [
-                dbc.NavLink("Exploration", href="/", active="exact"),
-                dbc.NavLink("Analysis", href="/analysis", active="exact"),
-            ],
-            vertical=True,
-            pills=True,
-        ),
-    ],
-    style=SIDEBAR_STYLE,
-)
-
-content = html.Div(id="page-content", style=CONTENT_STYLE)
-
-app.layout = html.Div([
-    dcc.Location(id="url"),
-    sidebar,
-    content
-])
+app.layout = app_main
 
 # #
 # --------------- Callbacks for interactions ----------------
@@ -423,23 +390,6 @@ def update_output(list_of_contents, list_of_names):
 def info_hover(feature):
     return get_info(feature)
 
-
-
-@callback(Output("page-content", "children"), [Input("url", "pathname")])
-def render_page_content(pathname):
-    if pathname == "/":
-        return app_main
-    elif pathname == "/analysis":
-        return html.P("This is the content of page 1. Yay!")
-    # If the user tries to reach a different page, return a 404 message
-    return html.Div(
-        [
-            html.H1("404: Not found", className="text-danger"),
-            html.Hr(),
-            html.P(f"The pathname {pathname} was not recognised..."),
-        ],
-        className="p-3 bg-light rounded-3",
-    )
 
 @callback(
     [
@@ -545,7 +495,7 @@ def on_hover(geo, umap):
     children = [
         html.Img(
             src='data:image/png;base64,{}'.format(img.decode()),
-            style={"height": "200px", "width" : "200px", "margin-left": "20px"}
+            style={"height": "100%", "width" : "100%"}
         )
         for img in encoded_image
     ]
@@ -561,9 +511,11 @@ def on_hover(geo, umap):
             marks={i: str(i + 1) for i in range(len(children))}
         ),
         html.Div(id='image-container')
-    ])
+    ], style = {"width" : "100%", "height" : "100%"})
 
     return [figures['umap'], slider]
+
+
 
 @app.callback(Output('image-container', 'children'), [Input('image-slider', 'value')])
 def update_image(value):

@@ -28,16 +28,27 @@ def get_image_from_jpeg(path):
     return img
 
 
-def _compute_clip_embeddings(images_dir: str, use_gpu: bool = False) -> pd.DataFrame:
+def _compute_clip_embeddings(images_dir: str, use_gpu: bool = False, resume: int = 0, resume_file: str = None) -> pd.DataFrame:
     """
     Computes CLIP embeddings for the images inside a dataset folder
     """
+    # Check if we have already computed the embeddings
+    if resume_file is not None and os.path.exists(resume_file):
+        df = pd.read_pickle(resume_file)
+        embeddings = {'embeddings': df['embeddings'].tolist(), 'paths': df.index.tolist()}
+    else:
+        embeddings = {'embeddings': [], 'paths': []}
+
     # Load the model
     clip_model = clip.load_clip_model(gpu=use_gpu)
-    embeddings = {'embeddings': [], 'paths': []}
+
     # Open the json file
     full_image_paths = glob.glob(images_dir + "/**/*.jpeg", recursive=True)
+    full_image_paths = sorted(full_image_paths)
     for full_image_path in tqdm(full_image_paths, desc='Computing CLIP embeddings'):
+        id_ = int(full_image_path.split('/')[-2])
+        if id_ < resume:
+            continue
         img = get_image_from_jpeg(path=full_image_path)
         visual_embs = clip_model.get_visual_emb_for_img(img)
         embeddings['embeddings'].append(visual_embs)
@@ -46,6 +57,8 @@ def _compute_clip_embeddings(images_dir: str, use_gpu: bool = False) -> pd.DataF
         embeddings['paths'].append(image_path)
 
     df = pd.DataFrame(embeddings)
+    df.drop_duplicates(subset=['paths'], inplace=True)
+
     df.set_index('paths', inplace=True)
     return df
 
@@ -63,16 +76,18 @@ def _compute_umap(df: pd.DataFrame) -> pd.DataFrame:
 
 if __name__ == "__main__":
     """
-    python precompute_embeddings.py --images_dir ../data/Funda/funda_images_tiny/ --output_file embeddings.pkl
+    python precompute_embeddings.py --images_dir ../data/Funda/funda_images_tiny/ --output_file embeddings.pkl --gpu --start 4291067
     """
     parser = argparse.ArgumentParser()
     parser.add_argument('--images_dir', type=str, required=True)
     parser.add_argument('--output_file', type=str, required=True)
+    parser.add_argument('--resume', type=int, default=0)
     parser.add_argument('--gpu', action='store_true')
     args = parser.parse_args()
 
-    df = _compute_clip_embeddings(args.images_dir, args.gpu)
-    os.makedirs(os.path.dirname(args.output_file), exist_ok=True)
+    df = _compute_clip_embeddings(args.images_dir, args.gpu, resume=args.resume, resume_file=args.output_file)
+    if os.path.dirname(args.output_file):
+        os.makedirs(os.path.dirname(args.output_file), exist_ok=True)
     df.to_pickle(args.output_file)  # tmp save
 
     df = _compute_umap(df)
