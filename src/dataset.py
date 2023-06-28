@@ -70,6 +70,12 @@ class FundaPrecomputedEmbeddings:
             raise ValueError('UMap not computed')
         return np.stack([self.df['umap_x'].values, self.df['umap_y'].values]).T
 
+    def get_all_ids(self) -> list[int]:
+        """
+        Returns all the ids
+        """
+        return [int(idx.split('/')[0]) for idx in self.df.index]
+
     def __len__(self) -> int:
         return len(self.df)
 

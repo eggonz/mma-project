@@ -51,19 +51,16 @@ def create_umap(houses):
     filtered_embeddings = ClipStuff.dataset_clip_embeddings.filter_ids(houses_ids)
     umap_coords = filtered_embeddings.get_all_umaps()
 
-    # if ClipStuff.query_clip_embedding is None:
-    #     colors = cm.get_cmap('viridis')(np.ones_like(umap_coords[:, 0])*0.5)
-    # else:
-    #     ranking = compute_emb_distances(ClipStuff.query_clip_embedding, filtered_embeddings.get_all_embeddings())
-    #     # ranking is between [-1,1], transform it to a color range in a cmap
-    #     ranking = (ranking + 1) / 2
-    #     colors = cm.get_cmap('viridis')(ranking)
-    #
-    # print(colors.shape)
+    if ClipStuff.query_clip_embedding is None:
+        ClipStuff.ranking = np.zeros(len(filtered_embeddings))
+    else:
+        ClipStuff.ranking = compute_emb_distances(ClipStuff.query_clip_embedding, filtered_embeddings.get_all_embeddings())
 
-    print(umap_coords.shape, umap_coords[:, 0].shape, umap_coords[:, 1].shape)
+    color = np.tanh(ClipStuff.ranking / 0.1)
+    data = pd.DataFrame({'umapx': umap_coords[:, 0], 'umapy': umap_coords[:, 1], 'rank': color, 'funda_id': filtered_embeddings.get_all_ids()})
 
-    fig = px.scatter(pd.DataFrame(umap_coords), x=0, y=1, opacity=0.5)  # , color=colors)
+    fig = px.scatter(data, x="umapx", y="umapy", color="rank", hover_data=['funda_id'], opacity=0.5)
+
     fig.update_layout(
         margin={"r": 0, "t": 0, "l": 0, "b": 0},
         xaxis={'visible': False, 'showticklabels': False},
@@ -98,6 +95,12 @@ class ClipStuff:
     model = load_clip_model()
     query_clip_embedding = None
     dataset_clip_embeddings = FundaPrecomputedEmbeddings.from_pickle(EMBEDDINGS_PATH)
+    ranking = None
+
+    @staticmethod
+    def reset():
+        ClipStuff.query_clip_embedding = None
+        ClipStuff.ranking = None
 
 
 app = Dash(__name__, assets_folder=ASSETS_PATH, external_stylesheets=[dbc.themes.DARKLY])
@@ -131,7 +134,7 @@ def update_colors(idx):
     if idx is not None:
         color[idx] = "red"
 
-    figures["umap"] = figures["umap"].update_traces(marker=dict(color=color))
+    #figures["umap"] = figures["umap"].update_traces(marker=dict(color=color))
 
 def update_prompt_list():
     return  html.Ol([
@@ -353,8 +356,12 @@ def update_uploaded_image(content, name):
         children = [
             parse_contents(c, n) for c, n in
             zip([content], [name])]
+
+        update_maps()
         return children
-    
+
+    ClipStuff.reset()
+
 
 @callback(Output("info", "children"), [Input("geomap", "hover_feature")])
 def info_hover(feature):
