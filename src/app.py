@@ -13,24 +13,16 @@ from PIL import Image
 
 from dash import Dash, Input, Output, callback, ctx, dash_table, dcc, html
 
-ASSETS_PATH = "../assets"
-ADS_PATH = "../data/funda_processed.pkl"
-EMBEDDINGS_PATH = "../data/embeddings.pkl"
-IMAGES_PATH = "../funda"
+ASSETS_PATH = "./assets"
+ADS_PATH = "./data/final.pkl"
+EMBEDDINGS_PATH = "./data/embeddings.pkl"
+IMAGES_PATH = "D:/cs/dash/assets/images"
 
 # #
 # --------------- Reading in some initial data ----------------
 # #
 
 df = pd.read_pickle(ADS_PATH)
-df["funda"] = df.index
-df = df.rename(columns={"latitude": "lat", "longitude": "lon"})
-labels = dict(zip([
-    'A+++++', 'A++++', 'A+++', 'A++', 'A+', 'A',
-    'B', 'C', 'D', 'E', 'F', 'G', 'Not available'
-], range(1, 14)))
-df["energy label"] = df["energy label"].map(labels)
-
 
 # print(df[["city", "nr_bedrooms", "energy_label"]])
 
@@ -48,7 +40,7 @@ df["energy label"] = df["energy label"].map(labels)
 #     return fig
 
 def create_umap(data):
-    fig = px.scatter(data, x="energy label", y="no. bedrooms", custom_data=['funda'])
+    fig = px.scatter(data, x="energy_label", y="nr_bedrooms", custom_data=['funda'])
     fig.update_layout(
         margin={"r": 0, "t": 0, "l": 0, "b": 0},
         xaxis={'visible': False, 'showticklabels': False},
@@ -61,11 +53,11 @@ def create_umap(data):
 # --------------- Global variables ----------------
 # #
 
-indices = [
-    42194016, 42194023, 42194046, 42194072, 42194086,
-    42194088, 42194092, 42194096, 42194098
-]
-df = df[df['funda'].isin(indices)]
+# indices = [
+#     42194016, 42194023, 42194046, 42194072, 42194086,
+#     42194088, 42194092, 42194096, 42194098
+# ]
+# df = df[df['funda'].isin(indices)]
 
 state = {
     "stack": [{"df": df, "prompt": ""}],
@@ -359,7 +351,7 @@ def on_input_prompt(prompt):
     reduce_houses(prompt)
     prompt_list = update_prompt_list()
 
-    reduced_points = df.query(prompt)
+    reduced_points = state["stack"][-1]["df"].query(prompt)
     reduced_points = dlx.dicts_to_geojson(reduced_points.to_dict('records'))
 
     return (
@@ -383,7 +375,7 @@ def on_button_undo(n_clicks):
 
     undo()
     prompt_list = update_prompt_list()
-    points = dlx.dicts_to_geojson(df.to_dict('records'))
+    points = dlx.dicts_to_geojson(state["stack"][-1]["df"].to_dict('records'))
 
     return figures["umap"], points, prompt_list
 
