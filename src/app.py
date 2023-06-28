@@ -44,9 +44,11 @@ df = pd.read_pickle(ADS_PATH)
 #     return fig
 
 
-def create_umap(image_paths):
+def create_umap(houses):
 
-    filtered_embeddings = ClipStuff.dataset_clip_embeddings[image_paths]
+    houses_ids = houses['funda'].unique()
+
+    filtered_embeddings = ClipStuff.dataset_clip_embeddings.filter_ids(houses_ids)
     umap_coords = filtered_embeddings.get_all_umaps()
 
     # if ClipStuff.query_clip_embedding is None:
@@ -61,7 +63,7 @@ def create_umap(image_paths):
 
     print(umap_coords.shape, umap_coords[:, 0].shape, umap_coords[:, 1].shape)
 
-    fig = px.scatter(x=umap_coords[:, 0], y=umap_coords[:, 1], opacity=0.5)  # , color=colors)
+    fig = px.scatter(pd.DataFrame(umap_coords), x=0, y=1, opacity=0.5)  # , color=colors)
     fig.update_layout(
         margin={"r": 0, "t": 0, "l": 0, "b": 0},
         xaxis={'visible': False, 'showticklabels': False},

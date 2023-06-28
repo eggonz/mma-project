@@ -81,10 +81,7 @@ class FundaPrecomputedEmbeddings:
         Filters the embeddings using a list of selected ids
         Returns a new FundaEmbeddings object
         """
-        def is_selected(x: str) -> bool:
-            """extracts the id from the image path and checks if it is in the selected ids"""
-            return int(x.split('/', maxsplit=1)[0]) in selected_ids
-        idxs = self.df.index.filter(is_selected).values
+        idxs = [idx for idx in self.df.index if int(idx.split('/')[0]) in selected_ids]
         df = self.df.loc[idxs].copy()
         return FundaPrecomputedEmbeddings(df)
 
