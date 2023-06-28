@@ -234,7 +234,7 @@ map = html.Div([dbc.Card([
             'height': '70vh',
             'margin': "auto",
             "display": "block"
-        }),
+        }, id="mapstate"),
     ]),
 ])])
 
@@ -327,6 +327,39 @@ image_table_holders = dbc.Card(
 
 image_umap = html.Div([image_table_holders, umap])
 
+mini_plot_holder = dbc.Stack([
+    dbc.Card(
+        dbc.CardBody([
+            html.H4("Histogram of Prices", className="card-title"),
+            dcc.Graph(
+                id="histo",
+                figure=figures["histo"]
+                ,  style = {"width" : "100%", "height" : "60%"}
+            )
+        ])
+    ),
+    dbc.Card(
+        dbc.CardBody([
+            html.H4("Pie Chart of Energy Labels", className="card-title"),
+            dcc.Graph(
+                id="pie",
+                figure=figures["pie"]
+                ,  style = {"width" : "100%", "height" : "60%"}
+            )
+        ])
+    ),
+    dbc.Card(
+        dbc.CardBody([
+            html.H4("Scatterplot of Prices and Living Space", className="card-title"),
+            dcc.Graph(
+                id="scatter",
+                figure=figures["scatter"]
+                ,  style = {"width" : "100%", "height" : "60%"}
+            )
+        ])
+    )
+])
+
 app_main = html.Div([
 
                 dbc.Row(
@@ -334,7 +367,7 @@ app_main = html.Div([
                         dbc.Col(prompt_holders, align = "start", width = 2),
                         dbc.Col(map_meta_data, align = "start", width = 4),
                         dbc.Col(image_umap, align = "start", width = 4),
-                        dbc.Col(html.Div("One of three columns"), width = 2)
+                        dbc.Col(mini_plot_holder, align="start", width = 2)
                     ], align='center'
                 )
 ])
