@@ -58,8 +58,9 @@ def create_umap(houses):
 
     color = np.tanh(ClipStuff.ranking / 0.1)
     data = pd.DataFrame({'umapx': umap_coords[:, 0], 'umapy': umap_coords[:, 1], 'rank': color, 'funda_id': filtered_embeddings.get_all_ids()})
+    size = np.clip(color*0.25+0.25, 0, 0.5)
 
-    fig = px.scatter(data, x="umapx", y="umapy", color="rank", size=color/2+1, hover_data=['funda_id'], opacity=0.5)
+    fig = px.scatter(data, x="umapx", y="umapy", color="rank", size=size, custom_data=['funda_id'], opacity=0.5)
 
     fig.update_layout(
         margin={"r": 0, "t": 0, "l": 0, "b": 0},
@@ -346,21 +347,10 @@ def update_uploaded_image(content, name):
     name: name of the uploaded file
     """
     if content is not None:
-        clean_content = re.sub('^data:image/.+;base64,', '', content)
-        decoded_bytes = base64.b64decode(clean_content)
-        image_bytes = io.BytesIO(decoded_bytes)
-        image = Image.open(image_bytes)
-
-        ClipStuff.query_clip_embedding = ClipStuff.model.get_visual_emb_for_img(image)
-
         children = [
             parse_contents(c, n) for c, n in
             zip([content], [name])]
-
-        update_maps()
         return children
-
-    ClipStuff.reset()
 
 
 @callback(Output("info", "children"), [Input("geomap", "hover_feature")])
@@ -408,6 +398,26 @@ def on_input_prompt(text_prompt):
         reduced_points,
         prompt_list
     )
+
+@callback(
+    Output("umap", "figure", allow_duplicate=True),
+    Input('upload-image', 'contents'),
+    prevent_initial_call=True,
+)
+def on_input_image(content):
+    if content is None:
+        ClipStuff.reset()
+        return
+
+    clean_content = re.sub('^data:image/.+;base64,', '', content)
+    decoded_bytes = base64.b64decode(clean_content)
+    image_bytes = io.BytesIO(decoded_bytes)
+    image = Image.open(image_bytes)
+
+    ClipStuff.query_clip_embedding = ClipStuff.model.get_visual_emb_for_img(image)
+    update_maps()
+
+    return figures["umap"]
 
 @callback(
     [
