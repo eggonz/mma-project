@@ -10,13 +10,14 @@ import plotly.express as px
 import requests
 from dash_extensions.javascript import arrow_function
 from PIL import Image
-
 from dash import Dash, Input, Output, callback, ctx, dash_table, dcc, html
 
-ASSETS_PATH = "./assets"
-ADS_PATH = "./data/final.pkl"
-EMBEDDINGS_PATH = "./data/embeddings.pkl"
-IMAGES_PATH = "D:/cs/dash/assets/images"
+import gpt
+
+ASSETS_PATH = "../assets"
+ADS_PATH = "../data/ads.jsonlines"
+EMBEDDINGS_PATH = "../data/embeddings.pkl"
+IMAGES_PATH = "../data/images"
 
 # #
 # --------------- Reading in some initial data ----------------
@@ -80,12 +81,18 @@ def update_maps():
     houses = state["stack"][-1]["df"]
     figures["umap"] = create_umap(houses)
 
-def reduce_houses(prompt):
-    if prompt in {p["prompt"] for p in state["stack"]}:
+def reduce_houses(text_prompt):
+
+    # ask gpt
+    filter_prompt = gpt.get_pandas_query(text_prompt)
+    pretty_prompt = gpt.get_pretty_prompt(filter_prompt)
+
+    # update state
+    if pretty_prompt in {p["prompt"] for p in state["stack"]}:
         return
 
-    houses = state["stack"][-1]["df"].query(prompt)
-    state["stack"].append({"df": houses, "prompt": prompt})
+    houses = state["stack"][-1]["df"].query(filter_prompt)
+    state["stack"].append({"df": houses, "prompt": pretty_prompt})
 
     update_maps()
     return houses
@@ -172,8 +179,8 @@ prompt_holders = html.Div([
         html.Div([
             html.H3("Enter prompt here:"),
             dcc.Input(
-                id="prompt", type="text", debounce=True,
-                placeholder="city == 'Amsterdam' or city == 'Rotterdam'"
+                id="text_prompt", type="text", debounce=True,
+                placeholder="I want a house in Amsterdam or in Rotterdam"
             ),
             html.Div(id="previous_prompts")
         ]),
@@ -211,64 +218,6 @@ app_main = dbc.Container([
         dbc.Col(html.Div(image_table_holders), width= 3),
     ],  style={'height': '100%'}),
 ], fluid=True)
-
-
-# app.layout = html.Div([
-#     html.Div([
-#         html.Div(
-#             html.Div([
-#                 html.H1("Enter prompt here:"),
-#                 dcc.Input(
-#                     id="prompt", type="text", debounce=True,
-#                     placeholder="city == 'Amsterdam' or city == 'Rotterdam'"
-#                 ),
-#                 html.Div(id="previous_prompts")
-#             ],
-#                 className="content"),
-#             id="top_left", className="panel"
-#         ),
-#         html.Div(
-#             html.Div([
-#                 html.Div([
-#                     html.H1("Enter image URL here:"),
-#                     dcc.Input(
-#                         id="image_prompt", type="url", debounce=True,
-#                     )
-#                 ], id="image_inputs"),
-#                 html.Div(id="image_prompt_vis")
-#             ], className="content"),
-#             id="middle_left", className="panel"
-#         ),
-#         html.Div(
-#             html.Div([
-#                 html.Button('Reset', id='reset_button', n_clicks=0),
-#                 html.Button('Undo', id='undo_button', n_clicks=0)
-#             ], id="buttons", className="content"),
-#             id="bottom_left", className="panel"
-#         )
-#     ], id="left"),
-#     html.Div([
-#         map,
-#         umap,
-#     ], id="middle"),
-
-#     html.Div([
-#         html.Div(
-#             html.Div(id="image_container", className="content"),
-#             id="top_right", className="panel"
-#         ),
-#         html.Div(
-#             html.Div(
-#                 dash_table.DataTable(
-#                     state["stack"][-1]["df"].drop(columns="images").to_dict("records")
-#                     page_size=15, id="data_table"
-#                 ),
-#                 className="content"
-#             ),
-#             id="bottom_right", className="panel"
-#         )
-#     ], id="right")
-# ], id="container")
 
 
 SIDEBAR_STYLE = {
@@ -341,14 +290,13 @@ def render_page_content(pathname):
         Output("geomap", "data", allow_duplicate=True),
         Output("previous_prompts", "children", allow_duplicate=True)
     ],
-    Input("prompt", "value"),
+    Input("text_prompt", "value"),
     prevent_initial_call=True
 )
-def on_input_prompt(prompt):
-    if prompt is None:
+def on_input_prompt(text_prompt):
+    if text_prompt is None:
         return
-
-    reduce_houses(prompt)
+    reduce_houses(text_prompt)
     prompt_list = update_prompt_list()
 
     reduced_points = state["stack"][-1]["df"].query(prompt)
