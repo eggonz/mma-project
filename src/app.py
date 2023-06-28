@@ -335,9 +335,15 @@ app.layout = html.Div([
 # #
 
 
-@callback(Output('output-image-upload', 'children'),
-              Input('upload-image', 'contents'),
-              State('upload-image', 'filename'))
+@callback(
+    [
+        Output('output-image-upload', 'children'),
+        Output("umap", "figure", allow_duplicate=True)
+    ],
+    Input('upload-image', 'contents'),
+    State('upload-image', 'filename'),
+    prevent_initial_call=True
+)
 def update_uploaded_image(content, name):
     """
     it replaces the content of output-image-upload with the uploaded image and its name
@@ -358,7 +364,7 @@ def update_uploaded_image(content, name):
             zip([content], [name])]
 
         update_maps()
-        return children
+        return children, figures["umap"]
 
     ClipStuff.reset()
 
