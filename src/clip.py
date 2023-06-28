@@ -92,6 +92,8 @@ def load_clip_model(gpu=False) -> ClipModel:
 def compute_emb_distances(query_embedding: np.ndarray, document_embeddings: np.ndarray) -> np.ndarray:
     """
     Computes the cosine similarity between the query embedding and the document embeddings.
+    The output is in range [-1, 1], where 1 means the embeddings are identical.
+
     :param query_embedding: (embedding_dim,)
     :param document_embeddings: (num_documents, embedding_dim)
     """
