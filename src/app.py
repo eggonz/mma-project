@@ -410,11 +410,13 @@ def on_pan_geomap(bounds):
     State('upload-image', 'filename')
 )
 def update_output(list_of_contents, list_of_names):
-    if list_of_contents is not None:
-        children = [
-            parse_contents(c, n) for c, n in
-            zip([list_of_contents], [list_of_names])]
-        return children
+    if list_of_contents is None:
+        return
+
+    children = [
+        parse_contents(c, n) for c, n in
+        zip([list_of_contents], [list_of_names])]
+    return children
 
 
 @callback(Output("info", "children"), [Input("geomap", "hover_feature")])
