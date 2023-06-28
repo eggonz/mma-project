@@ -13,10 +13,10 @@ from PIL import Image
 
 from dash import Dash, Input, Output, callback, ctx, dash_table, dcc, html
 
-ASSETS_PATH = "./assets"
-ADS_PATH = "./data/funda_processed.pkl"
-EMBEDDINGS_PATH = "./data/embeddings.pkl"
-IMAGES_PATH = "D:/cs/dash/assets/images"
+ASSETS_PATH = "../assets"
+ADS_PATH = "../data/funda_processed.pkl"
+EMBEDDINGS_PATH = "../data/embeddings.pkl"
+IMAGES_PATH = "../funda"
 
 # #
 # --------------- Reading in some initial data ----------------
