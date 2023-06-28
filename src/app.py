@@ -58,6 +58,33 @@ def create_umap(data):
 
     return fig
 
+def create_histo(data):
+    fig = px.histogram(
+        data,
+        x="price",
+        nbins=20
+    )
+
+    return fig
+
+def create_pie(data):
+    fig = px.pie(
+        data["energy_label"].value_counts().reset_index(),
+        names="energy_label",
+        values="count"
+    )
+
+    return fig
+
+def create_scatter(data):
+    fig = px.scatter(
+        data,
+        x="price",
+        y="living_area_size",
+    )
+
+    return fig
+
 # #
 # --------------- Global variables ----------------
 # #
@@ -76,7 +103,10 @@ state = {
 
 figures = {
     "geomap": None,
-    "umap": None
+    "umap": None,
+    "histo": None,
+    "pie": None,
+    "scatter": None
 }
 
 app = Dash(
@@ -89,9 +119,18 @@ app = Dash(
 # --------------- State changing functions ----------------
 # #
 
-def update_maps():
-    houses = state["stack"][-1]["df"]
+def update_plots(houses):
     figures["umap"] = create_umap(houses)
+    figures["histo"] = create_histo(houses)
+    figures["pie"] = create_pie(houses)
+    figures["scatter"] = create_scatter(houses)
+
+    return (
+        figures["umap"],
+        figures["histo"],
+        figures["pie"],
+        figures["scatter"]
+    )
 
 def reduce_houses(text_prompt):
 
@@ -106,7 +145,7 @@ def reduce_houses(text_prompt):
     houses = state["stack"][-1]["df"].query(filter_prompt)
     state["stack"].append({"df": houses, "prompt": pretty_prompt})
 
-    update_maps()
+    update_plots(houses)
     return houses
 
 def update_colors(idx):
@@ -117,7 +156,7 @@ def update_colors(idx):
     figures["umap"] = figures["umap"].update_traces(marker=dict(color=color))
 
 def update_prompt_list():
-    return  html.Ol([
+    return html.Ol([
         html.Li(p["prompt"]) for p in state["stack"][1:]
     ])
 
@@ -126,17 +165,19 @@ def reset():
         return
 
     state["stack"] = state["stack"][:1]
-    update_maps()
+    houses = state["stack"][-1]["df"]
+    update_plots(houses)
 
 def undo():
     if len(state["stack"]) <= 1:
         return
 
     state["stack"] = state["stack"][:-1]
-    update_maps()
+    houses = state["stack"][-1]["df"]
+    update_plots(houses)
 
 
-update_maps()
+update_plots(df)
 
 # #
 # --------------- HTML Layout ----------------
@@ -204,7 +245,7 @@ map = dbc.Card([
             'height': '50vh',
             'margin': "auto",
             "display": "block"
-        }),
+        }, id="mapstate"),
     ], className="content"),
 ])
 
@@ -269,13 +310,25 @@ map_holders = [map, umap]
 image_table_holders = html.Div([
     html.H3("Images of the clicked house", style= {"margin-left": "10px"}),
     html.Div(id="image_container", className="content"),
-]),
+    dcc.Graph(
+        id="histo",
+        figure=figures["histo"]
+    ),
+    dcc.Graph(
+        id="pie",
+        figure=figures["pie"]
+    ),
+    dcc.Graph(
+        id="scatter",
+        figure=figures["scatter"]
+    )
+])
 
 app_main = dbc.Container([
     dbc.Row([
-        dbc.Col(prompt_holders, width= 2),
-        dbc.Col(map_holders, width = 6, style = {"margin-left": "30px"}),
-        dbc.Col(image_table_holders, width= 3),
+        dbc.Col(prompt_holders, width=2),
+        dbc.Col(map_holders, width=6, style = {"margin-left": "30px"}),
+        dbc.Col(image_table_holders, width=3),
     ],  style={'height': '100%'}),
 ], fluid=True)
 
@@ -326,6 +379,30 @@ app.layout = html.Div([
 # --------------- Callbacks for interactions ----------------
 # #
 
+@callback(
+    [
+        Output("umap", "figure", allow_duplicate=True),
+        Output("histo", "figure", allow_duplicate=True),
+        Output("pie", "figure", allow_duplicate=True),
+        Output("scatter", "figure", allow_duplicate=True),
+    ],
+    Input("mapstate", "bounds"),
+    prevent_initial_call=True
+)
+def on_pan_geomap(bounds):
+    (
+        (lat_min, lon_min),
+        (lat_max, lon_max)
+    ) = bounds
+
+    print(bounds)
+
+    df = state["stack"][-1]["df"]
+    subset = df.loc[
+        df["lat"].between(lat_min, lat_max) &
+        df["lon"].between(lon_min, lon_max)
+    ]
+    return update_plots(subset)
 
 @callback(
     Output('output-image-upload', 'children'),
@@ -365,6 +442,9 @@ def render_page_content(pathname):
 @callback(
     [
         Output("umap", "figure", allow_duplicate=True),
+        Output("histo", "figure", allow_duplicate=True),
+        Output("pie", "figure", allow_duplicate=True),
+        Output("scatter", "figure", allow_duplicate=True),
         Output("geomap", "data", allow_duplicate=True),
         Output("previous_prompts", "children", allow_duplicate=True)
     ],
@@ -378,11 +458,16 @@ def on_input_prompt(text_prompt):
     prompt_list = update_prompt_list()
 
     reduced_points = state["stack"][-1]["df"].query(text_prompt)
-    reduced_points = dlx.dicts_to_geojson(reduced_points.to_dict('records'))
+    geomap = dlx.dicts_to_geojson(reduced_points.to_dict('records'))
+
+    umap, histo, pie, scatter = update_plots(reduced_points)
 
     return (
-        figures["umap"],
-        reduced_points,
+        umap,
+        histo,
+        pie,
+        scatter,
+        geomap,
         prompt_list
     )
 
