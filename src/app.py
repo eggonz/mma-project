@@ -49,6 +49,27 @@ df = pd.read_pickle(ADS_PATH)
 
 #     return fig
 
+def create_table_df(houses):
+    houses_ids = houses['funda'].unique()
+
+    filtered_embeddings = ClipStuff.dataset_clip_embeddings.filter_ids(
+        houses_ids)
+
+    if ClipStuff.query_clip_embedding is None:
+        ClipStuff.ranking = np.zeros(len(filtered_embeddings))
+
+    ranked_houses = filtered_embeddings.rank_houses(ClipStuff.ranking)
+
+    return houses.loc[
+        ranked_houses,
+        [
+            "funda", "city", "price", "plot_size"
+            # "address", "neighborhood", "city",
+            # "price", "construction_year", "nr_rooms",
+            # "nr_bedrooms", "energy_label", "house_type",
+            # "living_area_size", "plot_size"
+        ]
+    ].reset_index(drop=True).to_dict("records")
 
 def create_umap(houses):
     houses_ids = houses['funda'].unique()
@@ -126,13 +147,23 @@ def create_scatter(data):
 # df = df[df['funda'].isin(indices)]
 
 state = {
-    "stack": [{"df": df, "prompt": ""}],
+    "stack": [{"df": df, "prompt": "", "subset": None}],
     "active_id": None,
     "children": None,
 }
 
-figures = {"geomap": None, "umap": None,
-           "histo": None, "pie": None, "scatter": None}
+def current() -> pd.DataFrame:
+    curr = state["stack"][-1]
+    return curr["df"] if curr["subset"] is None else curr["subset"]
+
+figures = {
+    "geomap": None,
+    "umap": None,
+    "histo": None,
+    "pie": None,
+    "scatter": None,
+    "table": None
+}
 
 
 class ClipStuff:
@@ -163,8 +194,15 @@ def update_plots(houses):
     figures["histo"] = create_histo(houses)
     figures["pie"] = create_pie(houses)
     figures["scatter"] = create_scatter(houses)
+    figures["table"] = create_table_df(houses)
 
-    return (figures["umap"], figures["histo"], figures["pie"], figures["scatter"])
+    return (
+        figures["umap"],
+        figures["histo"],
+        figures["pie"],
+        figures["scatter"],
+        figures["table"]
+    )
 
 
 def reduce_houses(text_prompt):
@@ -181,14 +219,6 @@ def reduce_houses(text_prompt):
 
     update_plots(houses)
     return houses
-
-
-def update_colors(idx):
-    color = ["blue"] * len(state["stack"][-1]["df"])
-    if idx is not None:
-        color[idx] = "red"
-
-    # figures["umap"] = figures["umap"].update_traces(marker=dict(color=color))
 
 
 def update_prompt_list():
@@ -214,6 +244,7 @@ def undo():
 
 
 update_plots(df)
+
 
 # #
 # --------------- HTML Layout ----------------
@@ -290,7 +321,7 @@ map = html.Div(
                                     cluster=True,
                                     id="geomap",
                                     zoomToBoundsOnClick=True,
-                                    zoomToBounds=True,
+                                    zoomToBounds=False,
                                     superClusterOptions={"radius": 100},
                                     options=dict(pointToLayer=ns("pointToLayer")),
                                     hoverStyle=arrow_function(dict(weight=5, color='red', dashArray='')),
@@ -301,7 +332,7 @@ map = html.Div(
                             zoom=7,
                             style={
                                 "width": "100%",
-                                "height": "70vh",
+                                "height": "50vh",
                                 "margin": "auto",
                                 "display": "block",
                             },
@@ -334,6 +365,25 @@ umap = html.Div(
     ]
 )
 
+table = html.Div(
+    [
+        dbc.Card(
+            [
+                dbc.CardBody(
+                    [
+                        html.H4("Ranked houses", className="card-title"),
+                        dash_table.DataTable(
+                            data=figures["table"],
+                            id="housetable",
+                            page_current=0,
+                            page_size=6
+                        )
+                    ]
+                )
+            ]
+        )
+    ]
+)
 
 prompt_holders = html.Div(
     [
@@ -352,6 +402,20 @@ prompt_holders = html.Div(
                 ]
             ),
             style={"width": "100%", "marginBottom": "20px"},
+        ),
+        html.Div(
+            html.Div(
+                [
+                    dbc.Button(
+                        "Reset",
+                        id="reset_button",
+                        n_clicks=0,
+                        style={"marginRight": "5px"},
+                    ),
+                    dbc.Button("Undo", id="undo_button", n_clicks=0),
+                ]
+            ),
+            style={"marginTop": "10px"},
         ),
         html.Div(
             [
@@ -376,26 +440,12 @@ prompt_holders = html.Div(
                 ),
                 html.Div(id="output-image-upload"),
             ]
-        ),
-        html.Div(
-            html.Div(
-                [
-                    dbc.Button(
-                        "Reset",
-                        id="reset_button",
-                        n_clicks=0,
-                        style={"marginRight": "5px"},
-                    ),
-                    dbc.Button("Undo", id="undo_button", n_clicks=0),
-                ]
-            ),
-            style={"marginTop": "10px"},
-        ),
+        )
     ],
     style={"marginLeft": "10px"},
 )
 
-map_meta_data = dbc.Stack([map, html.Div("Meta Data Comes Here")])
+map_meta_data = dbc.Stack([map, table])
 
 imgs_placeholder = [
     "42194016/image1.jpeg",
@@ -515,6 +565,7 @@ app.layout = app_main
         Output("histo", "figure", allow_duplicate=True),
         Output("pie", "figure", allow_duplicate=True),
         Output("scatter", "figure", allow_duplicate=True),
+        Output("housetable", "data", allow_duplicate=True)
     ],
     Input("mapstate", "bounds"),
     prevent_initial_call=True,
@@ -527,13 +578,15 @@ def on_pan_geomap(bounds):
         df["lat"].between(lat_min, lat_max) & df["lon"].between(
             lon_min, lon_max)
     ]
+    state["stack"][-1]["subset"] = subset
     return update_plots(subset)
 
 
 @callback(
     [
         Output("output-image-upload", "children"),
-        Output("umap", "figure", allow_duplicate=True)
+        Output("umap", "figure", allow_duplicate=True),
+        Output("housetable", "data", allow_duplicate=True)
     ],
     Input('upload-image', 'contents'),
     State('upload-image', 'filename'),
@@ -560,8 +613,10 @@ def update_uploaded_image(content, name):
             for c, n in zip([content], [name])
         ]
 
-        figures["umap"] = create_umap(state["stack"][-1]["df"])
-        return children, figures["umap"]
+        curr = current()
+        figures["umap"] = create_umap(curr)
+        figures["table"] = create_table_df(curr)
+        return children, figures["umap"], figures["table"]
 
     ClipStuff.reset()
 
@@ -577,6 +632,7 @@ def info_hover(feature):
         Output("histo", "figure", allow_duplicate=True),
         Output("pie", "figure", allow_duplicate=True),
         Output("scatter", "figure", allow_duplicate=True),
+        Output("housetable", "data", allow_duplicate=True),
         Output("geomap", "data", allow_duplicate=True),
         Output("previous_prompts", "children", allow_duplicate=True),
     ],
@@ -592,9 +648,9 @@ def on_input_prompt(text_prompt):
     reduced_points = state["stack"][-1]["df"].query(text_prompt)
     geomap = dlx.dicts_to_geojson(reduced_points.to_dict("records"))
 
-    umap, histo, pie, scatter = update_plots(reduced_points)
+    umap, histo, pie, scatter, housetable = update_plots(reduced_points)
 
-    return (umap, histo, pie, scatter, geomap, prompt_list)
+    return (umap, histo, pie, scatter, housetable, geomap, prompt_list)
 
 
 @callback(
@@ -656,10 +712,8 @@ def on_hover(geo, umap):
     if idx is None:
         return None
 
-    update_colors(idx=idx)
-
     # Use the latest dataframe to get the on hover information.
-    df = state["stack"][-1]["df"]
+    df = current()
     imgs = df.loc[df["funda"] == funda, "images_paths"]
     encoded_image = [
         base64.b64encode(open(f"{IMAGES_PATH}/{img}", "rb").read())
