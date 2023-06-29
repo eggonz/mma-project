@@ -106,8 +106,6 @@ def create_umap(houses):
     )
     size = np.clip(color * 0.25 + 0.25, 0, 0.5)
 
-    print(data)
-
     fig = px.scatter(
         data,
         x="umapx",
@@ -135,11 +133,17 @@ def create_histo(data):
 
     return fig
 
+labels = dict(zip(range(1, 14), [
+    'A+++++', 'A++++', 'A+++', 'A++', 'A+', 'A',
+    'B', 'C', 'D', 'E', 'F', 'G', 'N/A'
+]))
 
 def create_pie(data):
+    pie_df = data["energy_label"].value_counts().reset_index()
+    pie_df["label"] = pie_df["energy_label"].astype(int).map(labels)
     fig = px.pie(
-        data["energy_label"].value_counts().reset_index(),
-        names="energy_label",
+        pie_df,
+        names="label",
         values="count",
     )
     fig.update_layout(
