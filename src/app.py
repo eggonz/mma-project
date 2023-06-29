@@ -14,7 +14,7 @@ import plotly.express as px
 from PIL import Image
 
 import gpt
-from dash import Dash, Input, Output, State, callback, ctx, dash_table, dcc, html
+from dash import Dash, Input, Output, State, callback, ctx, dash_table, dcc, html, no_update
 import dash.exceptions
 
 from clip import load_clip_model, compute_emb_distances
@@ -774,6 +774,8 @@ def on_button_reset(n_clicks):
     prevent_initial_call=True,
 )
 def on_umap_hover(umap):
+    if umap is None:
+        return False, no_update, no_update
     if umap is not None and ctx.triggered_id == "umap":
         bbox, img = umap["points"][0]["bbox"], umap["points"][0]["customdata"][1]
 
