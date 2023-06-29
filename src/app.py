@@ -66,14 +66,11 @@ def create_table_df(houses):
         houses.loc[
             ranked_houses,
             [
-                "funda",
                 "city",
                 "price",
-                "plot_size"  # TODO shown column names
-                # "address", "neighborhood", "city",
-                # "price", "construction_year", "nr_rooms",
-                # "nr_bedrooms", "energy_label", "house_type",
-                # "living_area_size", "plot_size"
+                "living_area_size",
+                "nr_bedrooms",
+                "energy_label"
             ],
         ]
         .reset_index(drop=True)
