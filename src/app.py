@@ -171,7 +171,6 @@ def create_pie(data):
 
     return fig
 
-
 def create_scatter(data):
     fig = px.scatter(
         data,
@@ -516,36 +515,21 @@ encoded_image = [
     base64.b64encode(open(f"{IMAGES_PATH}/{img}", "rb").read())
     for img in imgs_placeholder
 ]
-children = [
-    html.Img(
-        src="data:image/png;base64,{}".format(img.decode()),
-        style={"height": "100%", "width": "100%"},
-    )
-    for img in encoded_image
-]
-state["children"] = children
-slider = html.Div(
-    [
-        dcc.Slider(
-            id="image-slider",
-            min=0,
-            max=len(children) - 1,
-            value=0,
-            step=1,
-            marks={i: str(i + 1) for i in range(len(children))},
-        ),
-        html.Div(id="image-container"),
-    ],
-    style={"width": "100%", "height": "100%"},
-)
 
+items = ["data:image/png;base64,{}".format(img.decode()) for key,img in enumerate(encoded_image)]
 image_table_holders = dbc.Card(
     dbc.CardBody(
         [
-            html.H4("Images of the selected house", style={"marginLeft": "10px"}),
-            html.Div(id="image_container", children=slider),
+            html.H4("Images of the selected house",
+                        style={"marginLeft": "10px"}),
+            dbc.Carousel(
+            items = [{"key": key, "src": item} for key,item in enumerate(items)],
+            controls = True,
+            indicators=True,
+            id = 'image_container'
+            )
         ]
-    )
+    ) 
 )
 
 image_umap = html.Div([image_table_holders, umap])
@@ -809,7 +793,7 @@ def on_umap_hover(umap):
 
 
 @callback(
-    [Output("image_container", "children")],
+    [Output("image_container", "items")],
     Input("geomap", "click_feature"),
     Input("umap", "clickData"),
     prevent_initial_call=True,
@@ -834,39 +818,18 @@ def on_hover(geo, umap):
         base64.b64encode(open(f"{IMAGES_PATH}/{img}", "rb").read())
         for img in imgs.iloc[0]
     ]
-    children = [
-        html.Img(
-            src="data:image/png;base64,{}".format(img.decode()),
-            style={"height": "100%", "width": "100%"},
-        )
-        for img in encoded_image
-    ]
-    state["children"] = children
+    items = [{"key": key, "src": "data:image/png;base64,{}".format(img.decode())} for key,img in enumerate(encoded_image)]
 
-    slider = html.Div(
-        [
-            dcc.Slider(
-                id="image-slider",
-                min=0,
-                max=len(children) - 1,
-                value=0,
-                step=1,
-                marks={i: str(i + 1) for i in range(len(children))},
-            ),
-            html.Div(id="image-container"),
-        ],
-        style={"width": "100%", "height": "100%"},
-    )
-
-    return [slider]
+    return [items]
 
 
-@app.callback(Output("image-container", "children"), [Input("image-slider", "value")])
-def update_image(value):
-    if value is None:
-        raise dash.exceptions.PreventUpdate
-    image_path = state["children"][int(value)]
-    return image_path
+# @app.callback(Output("image-container", "children"), [Input("image-slider", "value")])
+# def update_image(value):
+#     if value is None:
+#         return
+
+#     image_path = state["children"][int(value)]
+#     return image_path
 
 
 # #
