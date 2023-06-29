@@ -91,14 +91,22 @@ def create_umap(houses):
         ClipStuff.ranking = compute_emb_distances(
             ClipStuff.query_clip_embedding, filtered_embeddings.get_all_embeddings()
         )
+    funda_ids = filtered_embeddings.get_all_ids()
+    imgs = []
+    for id in funda_ids:
+        id_path = f'{IMAGES_PATH}/{id}'
+        id_imgs = [f'{id_path}/{x}' for x in os.listdir(f'{id_path}')]
+        imgs.append(id_imgs)
 
+    print(imgs)
     color = np.tanh(ClipStuff.ranking / 0.1)
     data = pd.DataFrame(
         {
             "umapx": umap_coords[:, 0],
             "umapy": umap_coords[:, 1],
             "rank": color,
-            "funda_id": filtered_embeddings.get_all_ids(),
+            "funda_id": funda_ids,
+            "image_path": imgs
         }
     )
     size = np.clip(color * 0.25 + 0.25, 0, 0.5)
