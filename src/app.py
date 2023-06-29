@@ -172,7 +172,7 @@ def create_scatter(data):
         data,
         x="price",
         y="living_area_size",
-        labels={'price': 'price (€)', 'living_area_size': 'area (m^2)'},
+        labels={'price': 'price (€)', 'living_area_size': 'area (㎡)'},
         custom_data=["funda"]
     )
     fig.update_layout(
@@ -426,6 +426,13 @@ table = html.Div(
                         html.H4("Ranked houses", className="card-title"),
                         dash_table.DataTable(
                             data=figures["table"],
+                            columns=[
+                                {"name": "City", "id": "city"},
+                                {"name": "Price", "id": "price"},
+                                {"name": "Area (㎡)", "id": "living_area_size"},
+                                {"name": "Bedrooms", "id": "nr_bedrooms"},
+                                {"name": "Energy Label", "id": "energy_label"}
+                            ],
                             id="housetable",
                             page_current=0,
                             page_size=6,
