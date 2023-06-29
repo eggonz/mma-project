@@ -76,6 +76,20 @@ class FundaPrecomputedEmbeddings:
         """
         return [int(idx.split('/')[0]) for idx in self.df.index]
 
+    def rank_houses(self, ranking: np.ndarray) -> pd.Series:
+        """
+        Returns a pd.Series of funda_ids, in order
+        from highest to lowest relevance.
+
+        Parameters:
+        ranking: numpy array that contains relevances
+                 for each image.
+        """
+        ordering = np.argsort(ranking)
+        funda_ids = np.array(self.get_all_ids())
+
+        return pd.Series(funda_ids[ordering]).drop_duplicates(keep="first")
+
     def __len__(self) -> int:
         return len(self.df)
 
@@ -148,7 +162,7 @@ class FundaDataset:
         def extract_features(df):
             df = df.drop(index=df.loc[42119366].name) # to be changed later: replace all values with nan instead or translate
 
-            dict_funda = {  'price per square meters':[], 
+            dict_funda = {  'price per square meters':[],
                             'vve contribution':[],
                             'house type':[],
                             'construction year':[],
@@ -210,7 +224,7 @@ class FundaDataset:
                 df[key] = value
             return df
         dataframe = extract_features(dataframe)
-                
+
         def extract_cities(location_list):
             cities = []
             regex = re.compile(r'\(.+\)')
