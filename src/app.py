@@ -52,19 +52,23 @@ df = pd.read_pickle(ADS_PATH)
 def create_umap(houses):
     houses_ids = houses['funda'].unique()
 
-    filtered_embeddings = ClipStuff.dataset_clip_embeddings.filter_ids(houses_ids)
+    filtered_embeddings = ClipStuff.dataset_clip_embeddings.filter_ids(
+        houses_ids)
     umap_coords = filtered_embeddings.get_all_umaps()
 
     if ClipStuff.query_clip_embedding is None:
         ClipStuff.ranking = np.zeros(len(filtered_embeddings))
     else:
-        ClipStuff.ranking = compute_emb_distances(ClipStuff.query_clip_embedding, filtered_embeddings.get_all_embeddings())
+        ClipStuff.ranking = compute_emb_distances(
+            ClipStuff.query_clip_embedding, filtered_embeddings.get_all_embeddings())
 
     color = np.tanh(ClipStuff.ranking / 0.1)
-    data = pd.DataFrame({'umapx': umap_coords[:, 0], 'umapy': umap_coords[:, 1], 'rank': color, 'funda_id': filtered_embeddings.get_all_ids()})
+    data = pd.DataFrame({'umapx': umap_coords[:, 0], 'umapy': umap_coords[:, 1],
+                        'rank': color, 'funda_id': filtered_embeddings.get_all_ids()})
     size = np.clip(color*0.25+0.25, 0, 0.5)
 
-    fig = px.scatter(data, x="umapx", y="umapy", color="rank", size=size, custom_data=['funda_id'], opacity=0.5)
+    fig = px.scatter(data, x="umapx", y="umapy", color="rank",
+                     size=size, custom_data=['funda_id'], opacity=0.5)
 
     fig.update_layout(
         margin={"r": 0, "t": 0, "l": 0, "b": 0},
@@ -126,13 +130,15 @@ state = {
     "children": None,
 }
 
-figures = {"geomap": None, "umap": None, "histo": None, "pie": None, "scatter": None}
+figures = {"geomap": None, "umap": None,
+           "histo": None, "pie": None, "scatter": None}
 
 
 class ClipStuff:
     model = load_clip_model()
     query_clip_embedding = None
-    dataset_clip_embeddings = FundaPrecomputedEmbeddings.from_pickle(EMBEDDINGS_PATH)
+    dataset_clip_embeddings = FundaPrecomputedEmbeddings.from_pickle(
+        EMBEDDINGS_PATH)
     ranking = None
 
     @staticmethod
@@ -142,7 +148,8 @@ class ClipStuff:
 
 
 app = Dash(
-    __name__, assets_folder=ASSETS_PATH, external_stylesheets=[dbc.themes.LITERA]
+    __name__, assets_folder=ASSETS_PATH, external_stylesheets=[
+        dbc.themes.LITERA]
 )
 
 # #
@@ -180,7 +187,7 @@ def update_colors(idx):
     if idx is not None:
         color[idx] = "red"
 
-    #figures["umap"] = figures["umap"].update_traces(marker=dict(color=color))
+    # figures["umap"] = figures["umap"].update_traces(marker=dict(color=color))
 
 
 def update_prompt_list():
@@ -277,7 +284,8 @@ map = html.Div(
                             [
                                 dl.TileLayer(),
                                 dl.GeoJSON(
-                                    data=dlx.dicts_to_geojson(df.to_dict("records")),
+                                    data=dlx.dicts_to_geojson(
+                                        df.to_dict("records")),
                                     cluster=True,
                                     id="geomap",
                                     zoomToBoundsOnClick=True,
@@ -309,7 +317,8 @@ umap = html.Div(
             [
                 dbc.CardBody(
                     [
-                        html.H4("UMAP of Image embeddings", className="card-title"),
+                        html.H4("UMAP of Image embeddings",
+                                className="card-title"),
                         dcc.Graph(
                             id="umap",
                             figure=figures["umap"],
@@ -422,7 +431,8 @@ slider = html.Div(
 image_table_holders = dbc.Card(
     dbc.CardBody(
         [
-            html.H4("Images of the clicked house", style={"margin-left": "10px"}),
+            html.H4("Images of the clicked house",
+                    style={"margin-left": "10px"}),
             html.Div(id="image_container", children=slider),
         ]
     )
@@ -447,7 +457,8 @@ mini_plot_holder = dbc.Stack(
         dbc.Card(
             dbc.CardBody(
                 [
-                    html.H6("Pie Chart of Energy Labels", className="card-title"),
+                    html.H6("Pie Chart of Energy Labels",
+                            className="card-title"),
                     dcc.Graph(
                         id="pie",
                         figure=figures["pie"],
@@ -512,13 +523,14 @@ def on_pan_geomap(bounds):
 
     df = state["stack"][-1]["df"]
     subset = df.loc[
-        df["lat"].between(lat_min, lat_max) & df["lon"].between(lon_min, lon_max)
+        df["lat"].between(lat_min, lat_max) & df["lon"].between(
+            lon_min, lon_max)
     ]
     return update_plots(subset)
 
 
 @callback(
-    [   
+    [
         Output("output-image-upload", "children"),
         Output("umap", "figure", allow_duplicate=True)
     ],
@@ -539,7 +551,8 @@ def update_uploaded_image(content, name):
         image_bytes = io.BytesIO(decoded_bytes)
         image = Image.open(image_bytes)
 
-        ClipStuff.query_clip_embedding = ClipStuff.model.get_visual_emb_for_img(image)
+        ClipStuff.query_clip_embedding = ClipStuff.model.get_visual_emb_for_img(
+            image)
 
         children = [
             parse_contents(c, n)
