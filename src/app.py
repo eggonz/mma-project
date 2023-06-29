@@ -63,12 +63,13 @@ def create_table_df(houses):
     return houses.loc[
         ranked_houses,
         [
-            "funda", "address", "neighborhood", "city",
-            "price", "construction_year", "nr_rooms",
-            "nr_bedrooms", "energy_label", "house_type",
-            "living_area_size", "plot_size"
+            "funda", "city", "price", "plot_size"
+            # "address", "neighborhood", "city",
+            # "price", "construction_year", "nr_rooms",
+            # "nr_bedrooms", "energy_label", "house_type",
+            # "living_area_size", "plot_size"
         ]
-    ]
+    ].reset_index(drop=True).to_dict("records")
 
 def create_umap(houses):
     houses_ids = houses['funda'].unique()
@@ -248,6 +249,7 @@ def undo():
 
 update_plots(df)
 
+
 # #
 # --------------- HTML Layout ----------------
 # #
@@ -334,7 +336,7 @@ map = html.Div(
                             zoom=7,
                             style={
                                 "width": "100%",
-                                "height": "70vh",
+                                "height": "50vh",
                                 "margin": "auto",
                                 "display": "block",
                             },
@@ -374,7 +376,12 @@ table = html.Div(
                 dbc.CardBody(
                     [
                         html.H4("Ranked houses", className="card-title"),
-                        dash_table.DataTable(figures["table"], id="housetable", page_size=8)
+                        dash_table.DataTable(
+                            data=figures["table"],
+                            id="housetable",
+                            page_current=0,
+                            page_size=6
+                        )
                     ]
                 )
             ]
