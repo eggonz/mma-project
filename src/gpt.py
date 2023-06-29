@@ -4,7 +4,8 @@ import openai
 
 openai.api_key = os.getenv("OPENAI_API_KEY")
 
-def cleanify(response):
+def cleanify(response: str):
+    response = response.lower()
     if len(response) < 2:
         return response
     
