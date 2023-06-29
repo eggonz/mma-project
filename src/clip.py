@@ -85,7 +85,7 @@ def load_clip_model(gpu=False) -> ClipModel:
     model = model.float()
     if gpu:
         model = model.cuda()
-
+    print("Loaded the model")
     return model
 
 

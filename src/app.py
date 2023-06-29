@@ -20,10 +20,11 @@ from clip import load_clip_model, compute_emb_distances
 from dataset import FundaPrecomputedEmbeddings
 
 
-ASSETS_PATH = os.getenv("ASSETS_PATH")
-ADS_PATH = os.getenv("ADS_PATH")
-EMBEDDINGS_PATH = os.getenv("EMBEDDINGS_PATH")
-IMAGES_PATH = os.getenv("IMAGES_PATH")
+ASSETS_PATH = "../assets"
+ADS_PATH = "../data/final.pkl"
+EMBEDDINGS_PATH = "../data/full_embeddings.pkl"
+IMAGES_PATH = "../funda"
+
 
 # Comment this line if you want to use true GPT (need API key)
 gpt.get_pandas_query = gpt.get_pretty_prompt = lambda x: x
@@ -140,11 +141,11 @@ def create_scatter(data):
 # --------------- Global variables ----------------
 # #
 
-# indices = [
-#     42194016, 42194023, 42194046, 42194072, 42194086,
-#     42194088, 42194092, 42194096, 42194098
-# ]
-# df = df[df['funda'].isin(indices)]
+indices = [
+    42194016, 42194023, 42194046, 42194072, 42194086,
+    42194088, 42194092, 42194096, 42194098
+]
+df = df[df['funda'].isin(indices)]
 
 state = {
     "stack": [{"df": df, "prompt": "", "subset": None}],
@@ -581,6 +582,23 @@ def on_pan_geomap(bounds):
     state["stack"][-1]["subset"] = subset
     return update_plots(subset)
 
+@callback(
+    [
+        Output("mapstate", "center", allow_duplicate=True),
+        Output("mapstate", "zoom", allow_duplicate=True),
+    ],
+    Input("umap", "clickData"),
+    prevent_initial_call=True,
+)
+def on_click_umap(umap):
+    if umap is not None and ctx.triggered_id == "umap":
+        funda, idx = umap["points"][0]["customdata"][0], umap["points"][0]["pointIndex"]
+    lat,lon = df.loc[df["funda"] == funda, "lat"].iloc[0], df.loc[df["funda"] == funda, "lon"].iloc[0]
+    coordinates = (lat,lon)
+    return [coordinates, 13]
+
+
+
 
 @callback(
     [
@@ -694,7 +712,7 @@ def on_button_reset(n_clicks):
 
 
 @callback(
-    [Output("umap", "figure"), Output("image_container", "children")],
+    [Output("image_container", "children")],
     Input("geomap", "click_feature"),
     Input("umap", "clickData"),
     prevent_initial_call=True,
@@ -743,14 +761,13 @@ def on_hover(geo, umap):
         style={"width": "100%", "height": "100%"},
     )
 
-    return [figures["umap"], slider]
+    return [slider]
 
 
 @app.callback(Output("image-container", "children"), [Input("image-slider", "value")])
 def update_image(value):
     if value is None:
         return
-
     image_path = state["children"][int(value)]
     return image_path
 
