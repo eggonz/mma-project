@@ -67,7 +67,7 @@ def create_table_df(houses):
                 "funda",
                 "city",
                 "price",
-                "plot_size"
+                "plot_size"  # TODO shown column names
                 # "address", "neighborhood", "city",
                 # "price", "construction_year", "nr_rooms",
                 # "nr_bedrooms", "energy_label", "house_type",
@@ -126,7 +126,7 @@ def create_umap(houses):
 
 
 def create_histo(data):
-    fig = px.histogram(data, x="price", nbins=20)
+    fig = px.histogram(data, x="price", nbins=20, labels={'price': 'price (€)'})
     fig.update_layout(
         margin={"r": 0, "t": 0, "l": 0, "b": 0},
     )
@@ -141,6 +141,7 @@ labels = dict(zip(range(1, 14), [
 def create_pie(data):
     pie_df = data["energy_label"].value_counts().reset_index()
     pie_df["label"] = pie_df["energy_label"].astype(int).map(labels)
+    pie_df = pie_df.sort_values("label")
     fig = px.pie(
         pie_df,
         names="label",
@@ -158,6 +159,7 @@ def create_scatter(data):
         data,
         x="price",
         y="living_area_size",
+        labels={'price': 'price (€)', 'living_area_size': 'area (m^2)'},
     )
     fig.update_layout(
         margin={"r": 0, "t": 0, "l": 0, "b": 0},
@@ -338,8 +340,7 @@ map = html.Div(
                     [
                         html.H4("Map of Houses", className="card-title"),
                         html.P(
-                            "Some quick example text to build on the card title and "
-                            "make up the bulk of the card's content.",
+                            "Location of the houses in the geographic map.",
                             className="card-text",
                         ),
                         dl.Map(
@@ -382,7 +383,11 @@ umap = html.Div(
             [
                 dbc.CardBody(
                     [
-                        html.H4("UMAP of Image embeddings", className="card-title"),
+                        html.H4("Similarity Exploration", className="card-title"),
+                        html.P(
+                            "Space to explore houses with similar styles.",
+                            className="card-text",
+                        ),
                         dcc.Graph(
                             id="umap",
                             figure=figures["umap"],
@@ -420,7 +425,7 @@ prompt_holders = html.Div(
         html.Div(
             html.Div(
                 [
-                    html.H4("GPT Prompt:"),
+                    html.H4("Description prompt:"),
                     dcc.Input(
                         id="text_prompt",
                         type="text",
@@ -447,8 +452,10 @@ prompt_holders = html.Div(
             ),
             style={"marginTop": "10px"},
         ),
+        html.Hr(),
         html.Div(
             [
+                html.H4("Image for similarity:"),
                 dcc.Upload(
                     id="upload-image",
                     children=html.Div(
@@ -514,7 +521,7 @@ slider = html.Div(
 image_table_holders = dbc.Card(
     dbc.CardBody(
         [
-            html.H4("Images of the clicked house", style={"marginLeft": "10px"}),
+            html.H4("Images of the selected house", style={"marginLeft": "10px"}),
             html.Div(id="image_container", children=slider),
         ]
     )
@@ -527,7 +534,7 @@ mini_plot_holder = dbc.Stack(
         dbc.Card(
             dbc.CardBody(
                 [
-                    html.H6("Histogram of Prices", className="card-title"),
+                    html.H6("Prices", className="card-title"),
                     dcc.Graph(
                         id="histo",
                         figure=figures["histo"],
@@ -539,7 +546,7 @@ mini_plot_holder = dbc.Stack(
         dbc.Card(
             dbc.CardBody(
                 [
-                    html.H6("Pie Chart of Energy Labels", className="card-title"),
+                    html.H6("Energy Labels", className="card-title"),
                     dcc.Graph(
                         id="pie",
                         figure=figures["pie"],
@@ -552,7 +559,7 @@ mini_plot_holder = dbc.Stack(
             dbc.CardBody(
                 [
                     html.H6(
-                        "Scatterplot of Prices and Living Space", className="card-title"
+                        "Living space vs. Price", className="card-title"
                     ),
                     dcc.Graph(
                         id="scatter",
