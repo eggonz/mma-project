@@ -2,7 +2,8 @@
 Script file intended to precompute embeddings for the whole funda dataset.
 In principle, not a module nor part of the pipeline.
 """
-import os, sys
+import os
+import sys
 
 currDir = os.path.dirname(os.path.realpath(__file__))
 rootDir = os.path.abspath(os.path.join(currDir, '../src'))
@@ -19,13 +20,6 @@ from tqdm import tqdm
 
 import clip
 from umap_utils import compute_umap
-
-
-def get_image_from_jpeg(path):
-    img = Image.open(path)
-    img = img.resize((224, 224))
-    img = img.convert('RGB')
-    return img
 
 
 def _compute_clip_embeddings(images_dir: str, use_gpu: bool = False, resume: int = 0, resume_file: str = None) -> pd.DataFrame:
@@ -49,9 +43,10 @@ def _compute_clip_embeddings(images_dir: str, use_gpu: bool = False, resume: int
         id_ = int(full_image_path.split('/')[-2])
         if id_ < resume:
             continue
-        img = get_image_from_jpeg(path=full_image_path)
-        visual_embs = clip_model.get_visual_emb_for_img(img)
-        embeddings['embeddings'].append(visual_embs)
+
+        img = Image.open(full_image_path)
+        visual_emb = clip_model.get_visual_emb_for_img(img)
+        embeddings['embeddings'].append(visual_emb)
 
         image_path = os.path.join(*full_image_path.split('/')[-2:])
         embeddings['paths'].append(image_path)

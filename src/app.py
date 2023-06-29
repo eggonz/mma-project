@@ -530,7 +530,7 @@ image_table_holders = dbc.Card(
             id = 'image_container'
             )
         ]
-    ) 
+    )
 )
 
 image_umap = html.Div([image_table_holders, umap])
@@ -676,9 +676,9 @@ def update_uploaded_image(content, name):
         clean_content = re.sub("^data:image/.+;base64,", "", content)
         decoded_bytes = base64.b64decode(clean_content)
         image_bytes = io.BytesIO(decoded_bytes)
-        image = Image.open(image_bytes)
+        img = Image.open(image_bytes)
 
-        ClipStuff.query_clip_embedding = ClipStuff.model.get_visual_emb_for_img(image)
+        ClipStuff.query_clip_embedding = ClipStuff.model.get_visual_emb_for_img(img)
 
         children = [parse_contents(c, n) for c, n in zip([content], [name])]
 
