@@ -443,6 +443,10 @@ prompt_holders = html.Div(
             html.Div(
                 [
                     html.H4("Description prompt:"),
+                    html.P(
+                        "Natural language description of the house requirements that will filter the displayed data.",
+                        className="card-text",
+                    ),
                     dcc.Input(
                         id="text_prompt",
                         type="text",
@@ -473,6 +477,11 @@ prompt_holders = html.Div(
         html.Div(
             [
                 html.H4("Image for similarity:"),
+                html.P(
+                    "You can provide an image of an example house that is similar to the idea you have in mind. "
+                    "This image will be used to rank the results based on similarity.",
+                    className="card-text",
+                ),
                 dcc.Upload(
                     id="upload-image",
                     children=html.Div(
