@@ -15,6 +15,7 @@ from PIL import Image
 
 import gpt
 from dash import Dash, Input, Output, State, callback, ctx, dash_table, dcc, html
+import dash.exceptions
 
 from clip import load_clip_model, compute_emb_distances
 from dataset import FundaPrecomputedEmbeddings
@@ -26,13 +27,14 @@ EMBEDDINGS_PATH = os.getenv("EMBEDDINGS_PATH")
 IMAGES_PATH = os.getenv("IMAGES_PATH")
 
 # Comment this line if you want to use true GPT (need API key)
-gpt.get_pandas_query = gpt.get_pretty_prompt = lambda x: x
+# gpt.get_pandas_query = gpt.get_pretty_prompt = lambda x: x
 
 # #
 # --------------- Reading in some initial data ----------------
 # #
 
 df = pd.read_pickle(ADS_PATH)
+df["city"] = df["city"].str.lower()
 
 # print(df[["city", "nr_bedrooms", "energy_label"]])
 
@@ -101,7 +103,7 @@ def create_umap(houses):
             "umapy": umap_coords[:, 1],
             "rank": color,
             "funda_id": funda_ids,
-            "image_path": img_paths
+            "image_path": img_paths,
         }
     )
     size = np.clip(color * 0.25 + 0.25, 0, 0.5)
@@ -121,6 +123,7 @@ def create_umap(houses):
         xaxis={"visible": False, "showticklabels": False},
         yaxis={"visible": False, "showticklabels": False},
     )
+    fig.update_traces(hoverinfo="none", hovertemplate=None)
 
     return fig
 
@@ -133,10 +136,28 @@ def create_histo(data):
 
     return fig
 
-labels = dict(zip(range(1, 14), [
-    'A+++++', 'A++++', 'A+++', 'A++', 'A+', 'A',
-    'B', 'C', 'D', 'E', 'F', 'G', 'N/A'
-]))
+
+labels = dict(
+    zip(
+        range(1, 14),
+        [
+            "A+++++",
+            "A++++",
+            "A+++",
+            "A++",
+            "A+",
+            "A",
+            "B",
+            "C",
+            "D",
+            "E",
+            "F",
+            "G",
+            "N/A",
+        ],
+    )
+)
+
 
 def create_pie(data):
     pie_df = data["energy_label"].value_counts().reset_index()
@@ -160,6 +181,7 @@ def create_scatter(data):
         x="price",
         y="living_area_size",
         labels={'price': 'price (€)', 'living_area_size': 'area (m^2)'},
+        custom_data=["funda"]
     )
     fig.update_layout(
         margin={"r": 0, "t": 0, "l": 0, "b": 0},
@@ -172,11 +194,11 @@ def create_scatter(data):
 # --------------- Global variables ----------------
 # #
 
-indices = [
-    42194016, 42194023, 42194046, 42194072, 42194086,
-    42194088, 42194092, 42194096, 42194098
-]
-df = df[df['funda'].isin(indices)]
+# indices = [
+#     42194016, 42194023, 42194046, 42194072, 42194086,
+#     42194088, 42194092, 42194096, 42194098
+# ]
+# df = df[df['funda'].isin(indices)]
 
 state = {
     "stack": [{"df": df, "prompt": "", "subset": None}],
@@ -242,12 +264,15 @@ def reduce_houses(text_prompt):
     filter_prompt = gpt.get_pandas_query(text_prompt)
     pretty_prompt = gpt.get_pretty_prompt(filter_prompt)
 
+    print(filter_prompt)
+    print(pretty_prompt)
+
     # update state
     if pretty_prompt in {p["prompt"] for p in state["stack"]}:
         return
 
     houses = state["stack"][-1]["df"].query(filter_prompt)
-    state["stack"].append({"df": houses, "prompt": pretty_prompt})
+    state["stack"].append({"df": houses, "prompt": pretty_prompt, "subset": None})
 
     update_plots(houses)
     return houses
@@ -299,9 +324,7 @@ def parse_contents(contents, filename):
 
 def get_info(feature=None):
     header = [html.H4("House Attributes")]
-    if not feature:
-        return header + [html.P("Hover over a house")]
-    elif feature["properties"]["cluster"]:
+    if not feature or ("properties" not in feature) or feature["properties"]["cluster"]:
         return header + [html.P("Hover over a house")]
     else:
         return header + [
@@ -393,6 +416,7 @@ umap = html.Div(
                             figure=figures["umap"],
                             style={"width": "100%", "height": "60%"},
                         ),
+                        dcc.Tooltip(id="umap-tooltip"),
                     ]
                 ),
             ]
@@ -593,6 +617,20 @@ app.layout = app_main
 # --------------- Callbacks for interactions ----------------
 # #
 
+@callback(
+    [
+        Output("mapstate", "center", allow_duplicate=True),
+        Output("mapstate", "zoom", allow_duplicate=True),
+    ],
+    Input("scatter", "clickData"),
+    prevent_initial_call=True
+)
+def on_click_scatter(scatter):
+    if scatter is not None and ctx.triggered_id == "scatter":
+        funda = scatter["points"][0]["customdata"][0]
+    lat,lon = df.loc[df["funda"] == funda, "lat"].iloc[0], df.loc[df["funda"] == funda, "lon"].iloc[0]
+    coordinates = (lat,lon)
+    return [coordinates, 15]
 
 @callback(
     [
@@ -615,6 +653,7 @@ def on_pan_geomap(bounds):
     state["stack"][-1]["subset"] = subset
     return update_plots(subset)
 
+
 @callback(
     [
         Output("mapstate", "center", allow_duplicate=True),
@@ -625,12 +664,13 @@ def on_pan_geomap(bounds):
 )
 def on_click_umap(umap):
     if umap is not None and ctx.triggered_id == "umap":
-        funda, idx = umap["points"][0]["customdata"][0], umap["points"][0]["pointIndex"]
-    lat,lon = df.loc[df["funda"] == funda, "lat"].iloc[0], df.loc[df["funda"] == funda, "lon"].iloc[0]
-    coordinates = (lat,lon)
-    return [coordinates, 13]
-
-
+        funda = umap["points"][0]["customdata"][0]
+    lat, lon = (
+        df.loc[df["funda"] == funda, "lat"].iloc[0],
+        df.loc[df["funda"] == funda, "lon"].iloc[0],
+    )
+    coordinates = (lat, lon)
+    return [coordinates, 15]
 
 
 @callback(
@@ -687,12 +727,11 @@ def info_hover(feature):
     prevent_initial_call=True,
 )
 def on_input_prompt(text_prompt):
-    if text_prompt is None:
-        return
-    reduce_houses(text_prompt)
-    prompt_list = update_prompt_list()
+    if not isinstance(text_prompt, str) or len(text_prompt) < 15:
+        raise dash.exceptions.PreventUpdate
 
-    reduced_points = state["stack"][-1]["df"].query(text_prompt)
+    reduced_points = reduce_houses(text_prompt)
+    prompt_list = update_prompt_list()
     geomap = dlx.dicts_to_geojson(reduced_points.to_dict("records"))
 
     umap, histo, pie, scatter, housetable = update_plots(reduced_points)
@@ -711,7 +750,7 @@ def on_input_prompt(text_prompt):
 )
 def on_button_undo(n_clicks):
     if n_clicks is None:
-        return
+        raise dash.exceptions.PreventUpdate
 
     undo()
     prompt_list = update_prompt_list()
@@ -732,7 +771,7 @@ def on_button_undo(n_clicks):
 )
 def on_button_reset(n_clicks):
     if n_clicks is None:
-        return
+        raise dash.exceptions.PreventUpdate
 
     reset()
     prompt_list = update_prompt_list()
@@ -742,6 +781,34 @@ def on_button_reset(n_clicks):
     figures["umap"] = create_umap(state["stack"][-1]["df"])
 
     return figures["umap"], points, prompt_list, []
+
+
+@callback(
+    [
+        Output("umap-tooltip", "show"),
+        Output("umap-tooltip", "bbox"),
+        Output("umap-tooltip", "children"),
+    ],
+    Input("umap", "hoverData"),
+    prevent_initial_call=True,
+)
+def on_umap_hover(umap):
+    if umap is not None and ctx.triggered_id == "umap":
+        bbox, img = umap["points"][0]["bbox"], umap["points"][0]["customdata"][1]
+
+    encoded_image = base64.b64encode(open(f"{IMAGES_PATH}/{img}", "rb").read())
+    children = [
+        html.Div(
+            [
+                html.Img(
+                    src="data:image/png;base64,{}".format(encoded_image.decode()),
+                    style={"height": "100%", "width": "100%"},
+                )
+            ],
+            style={"width": "100px", "white-space": "normal"},
+        )
+    ]
+    return [True, bbox, children]
 
 
 @callback(
@@ -761,7 +828,7 @@ def on_hover(geo, umap):
         funda, idx = umap["points"][0]["customdata"][0], umap["points"][0]["pointIndex"]
 
     if idx is None:
-        return None
+        raise dash.exceptions.PreventUpdate
 
     # Use the latest dataframe to get the on hover information.
     df = current()
@@ -800,7 +867,7 @@ def on_hover(geo, umap):
 @app.callback(Output("image-container", "children"), [Input("image-slider", "value")])
 def update_image(value):
     if value is None:
-        return
+        raise dash.exceptions.PreventUpdate
     image_path = state["children"][int(value)]
     return image_path
 

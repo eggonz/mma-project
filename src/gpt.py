@@ -4,6 +4,20 @@ import openai
 
 openai.api_key = os.getenv("OPENAI_API_KEY")
 
+def cleanify(response):
+    if len(response) < 2:
+        return response
+    
+    if response.startswith("df.query"):
+        response = response[8:] 
+    
+    if (
+        response[0] == response[-1] == "'"
+        or response[0] == response[-1] == '"'
+    ):
+        response = response[1:-1]
+    
+    return response
 
 def get_pandas_query(user_input: str) -> str:
     system_prompt = (
@@ -15,10 +29,10 @@ def get_pandas_query(user_input: str) -> str:
         "'ERROR' is the only string you can return that is not a valid pandas query string. "
         "The target pandas DataFrame has the following columns: "
         "city (string lowercase), "
-        "price (float indicating the house price; ranging from 100000 the cheapest to 2000000 the most expensive), "
+        "price (float indicating the house price; ranging from 300000 the cheapest to 1000000 the most expensive), "
         "nr_bedrooms (integer; number of bedrooms), "
-        "living_area_size (integer; number of square meters, ranging from 10 the smallest to 2000 the biggest), "
-        "energy_label (float real number categorical value; ranging from 1 for the best to 13 for the worst). "
+        "living_area_size (integer; number of square meters, ranging from 10 the smallest to 1000 the biggest), "
+        "energy_label (float real number categorical value; ranging from 4 for the best to 10 for the worst). "
         "The output must only contain keys corresponding to the columns of the target DataFrame. "
         "The output logical expression contains brackets to group subexpressions. "
         "Any kind of leading and ending quotation marks must be stripped from the output string. "
@@ -33,7 +47,7 @@ def get_pandas_query(user_input: str) -> str:
         temperature=0.1,
     )
     answer = out["choices"][0]["message"]["content"]
-    return answer
+    return cleanify(answer)
 
 
 def get_pretty_prompt(filter_str: str) -> str:
