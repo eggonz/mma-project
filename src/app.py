@@ -147,10 +147,14 @@ def create_scatter(data):
 # df = df[df['funda'].isin(indices)]
 
 state = {
-    "stack": [{"df": df, "prompt": ""}],
+    "stack": [{"df": df, "prompt": "", "subset": None}],
     "active_id": None,
     "children": None,
 }
+
+def current() -> pd.DataFrame:
+    curr = state["stack"][-1]
+    return curr["df"] if curr["subset"] is None else curr["subset"]
 
 figures = {
     "geomap": None,
@@ -215,14 +219,6 @@ def reduce_houses(text_prompt):
 
     update_plots(houses)
     return houses
-
-
-def update_colors(idx):
-    color = ["blue"] * len(state["stack"][-1]["df"])
-    if idx is not None:
-        color[idx] = "red"
-
-    # figures["umap"] = figures["umap"].update_traces(marker=dict(color=color))
 
 
 def update_prompt_list():
@@ -582,6 +578,7 @@ def on_pan_geomap(bounds):
         df["lat"].between(lat_min, lat_max) & df["lon"].between(
             lon_min, lon_max)
     ]
+    state["stack"][-1]["subset"] = subset
     return update_plots(subset)
 
 
@@ -616,8 +613,9 @@ def update_uploaded_image(content, name):
             for c, n in zip([content], [name])
         ]
 
-        figures["umap"] = create_umap(state["stack"][-1]["df"])
-        figures["table"] = create_table_df(state["stack"][-1]["df"])
+        curr = current()
+        figures["umap"] = create_umap(curr)
+        figures["table"] = create_table_df(curr)
         return children, figures["umap"], figures["table"]
 
     ClipStuff.reset()
@@ -714,10 +712,8 @@ def on_hover(geo, umap):
     if idx is None:
         return None
 
-    update_colors(idx=idx)
-
     # Use the latest dataframe to get the on hover information.
-    df = state["stack"][-1]["df"]
+    df = current()
     imgs = df.loc[df["funda"] == funda, "images_paths"]
     encoded_image = [
         base64.b64encode(open(f"{IMAGES_PATH}/{img}", "rb").read())
