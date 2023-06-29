@@ -159,6 +159,7 @@ def create_scatter(data):
         data,
         x="price",
         y="living_area_size",
+        custom_data=["funda"]
     )
     fig.update_layout(
         margin={"r": 0, "t": 0, "l": 0, "b": 0},
@@ -588,6 +589,20 @@ app.layout = app_main
 # --------------- Callbacks for interactions ----------------
 # #
 
+@callback(
+    [
+        Output("mapstate", "center", allow_duplicate=True),
+        Output("mapstate", "zoom", allow_duplicate=True),
+    ],
+    Input("scatter", "clickData"),
+    prevent_initial_call=True
+)
+def on_click_scatter(scatter):
+    if scatter is not None and ctx.triggered_id == "scatter":
+        funda = scatter["points"][0]["customdata"][0]
+    lat,lon = df.loc[df["funda"] == funda, "lat"].iloc[0], df.loc[df["funda"] == funda, "lon"].iloc[0]
+    coordinates = (lat,lon)
+    return [coordinates, 15]
 
 @callback(
     [
