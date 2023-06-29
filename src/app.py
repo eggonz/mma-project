@@ -6,6 +6,7 @@ import os
 import dash_bootstrap_components as dbc
 import dash_leaflet as dl
 import dash_leaflet.express as dlx
+from dash_extensions.javascript import Namespace, arrow_function
 import numpy as np
 import pandas as pd
 import plotly.express as px
@@ -48,23 +49,48 @@ df = pd.read_pickle(ADS_PATH)
 
 #     return fig
 
+def create_table_df(houses):
+    houses_ids = houses['funda'].unique()
+
+    filtered_embeddings = ClipStuff.dataset_clip_embeddings.filter_ids(
+        houses_ids)
+
+    if ClipStuff.query_clip_embedding is None:
+        ClipStuff.ranking = np.zeros(len(filtered_embeddings))
+
+    ranked_houses = filtered_embeddings.rank_houses(ClipStuff.ranking)
+
+    return houses.loc[
+        ranked_houses,
+        [
+            "funda", "city", "price", "plot_size"
+            # "address", "neighborhood", "city",
+            # "price", "construction_year", "nr_rooms",
+            # "nr_bedrooms", "energy_label", "house_type",
+            # "living_area_size", "plot_size"
+        ]
+    ].reset_index(drop=True).to_dict("records")
 
 def create_umap(houses):
     houses_ids = houses['funda'].unique()
 
-    filtered_embeddings = ClipStuff.dataset_clip_embeddings.filter_ids(houses_ids)
+    filtered_embeddings = ClipStuff.dataset_clip_embeddings.filter_ids(
+        houses_ids)
     umap_coords = filtered_embeddings.get_all_umaps()
 
     if ClipStuff.query_clip_embedding is None:
         ClipStuff.ranking = np.zeros(len(filtered_embeddings))
     else:
-        ClipStuff.ranking = compute_emb_distances(ClipStuff.query_clip_embedding, filtered_embeddings.get_all_embeddings())
+        ClipStuff.ranking = compute_emb_distances(
+            ClipStuff.query_clip_embedding, filtered_embeddings.get_all_embeddings())
 
     color = np.tanh(ClipStuff.ranking / 0.1)
-    data = pd.DataFrame({'umapx': umap_coords[:, 0], 'umapy': umap_coords[:, 1], 'rank': color, 'funda_id': filtered_embeddings.get_all_ids()})
+    data = pd.DataFrame({'umapx': umap_coords[:, 0], 'umapy': umap_coords[:, 1],
+                        'rank': color, 'funda_id': filtered_embeddings.get_all_ids()})
     size = np.clip(color*0.25+0.25, 0, 0.5)
 
-    fig = px.scatter(data, x="umapx", y="umapy", color="rank", size=size, custom_data=['funda_id'], opacity=0.5)
+    fig = px.scatter(data, x="umapx", y="umapy", color="rank",
+                     size=size, custom_data=['funda_id'], opacity=0.5)
 
     fig.update_layout(
         margin={"r": 0, "t": 0, "l": 0, "b": 0},
@@ -121,18 +147,30 @@ def create_scatter(data):
 # df = df[df['funda'].isin(indices)]
 
 state = {
-    "stack": [{"df": df, "prompt": ""}],
+    "stack": [{"df": df, "prompt": "", "subset": None}],
     "active_id": None,
     "children": None,
 }
 
-figures = {"geomap": None, "umap": None, "histo": None, "pie": None, "scatter": None}
+def current() -> pd.DataFrame:
+    curr = state["stack"][-1]
+    return curr["df"] if curr["subset"] is None else curr["subset"]
+
+figures = {
+    "geomap": None,
+    "umap": None,
+    "histo": None,
+    "pie": None,
+    "scatter": None,
+    "table": None
+}
 
 
 class ClipStuff:
     model = load_clip_model()
     query_clip_embedding = None
-    dataset_clip_embeddings = FundaPrecomputedEmbeddings.from_pickle(EMBEDDINGS_PATH)
+    dataset_clip_embeddings = FundaPrecomputedEmbeddings.from_pickle(
+        EMBEDDINGS_PATH)
     ranking = None
 
     @staticmethod
@@ -142,7 +180,8 @@ class ClipStuff:
 
 
 app = Dash(
-    __name__, assets_folder=ASSETS_PATH, external_stylesheets=[dbc.themes.LITERA]
+    __name__, assets_folder=ASSETS_PATH, external_stylesheets=[
+        dbc.themes.LITERA]
 )
 
 # #
@@ -155,8 +194,15 @@ def update_plots(houses):
     figures["histo"] = create_histo(houses)
     figures["pie"] = create_pie(houses)
     figures["scatter"] = create_scatter(houses)
+    figures["table"] = create_table_df(houses)
 
-    return (figures["umap"], figures["histo"], figures["pie"], figures["scatter"])
+    return (
+        figures["umap"],
+        figures["histo"],
+        figures["pie"],
+        figures["scatter"],
+        figures["table"]
+    )
 
 
 def reduce_houses(text_prompt):
@@ -173,14 +219,6 @@ def reduce_houses(text_prompt):
 
     update_plots(houses)
     return houses
-
-
-def update_colors(idx):
-    color = ["blue"] * len(state["stack"][-1]["df"])
-    if idx is not None:
-        color[idx] = "red"
-
-    #figures["umap"] = figures["umap"].update_traces(marker=dict(color=color))
 
 
 def update_prompt_list():
@@ -207,6 +245,7 @@ def undo():
 
 update_plots(df)
 
+
 # #
 # --------------- HTML Layout ----------------
 # #
@@ -219,7 +258,7 @@ def parse_contents(contents, filename):
             # that is supplied by the upload
             html.Img(
                 src=contents,
-                style={"width": "100%", "height": "100%", "margin-top": "10px"},
+                style={"width": "100%", "height": "100%", "marginTop": "10px"},
             ),
             html.Hr(),
         ]
@@ -254,13 +293,13 @@ info = html.Div(
         "position": "absolute",
         "top": "10px",
         "right": "10px",
-        "z-index": "1000",
+        "zIndex": "1000",
         "color": "black",
-        "pointer-events": "none",
+        "pointerEvents": "none",
     },
 )
 
-
+ns = Namespace("myNamespace", "mySubNamespace")
 map = html.Div(
     [
         dbc.Card(
@@ -277,12 +316,15 @@ map = html.Div(
                             [
                                 dl.TileLayer(),
                                 dl.GeoJSON(
-                                    data=dlx.dicts_to_geojson(df.to_dict("records")),
+                                    data=dlx.dicts_to_geojson(
+                                        df.to_dict("records")),
                                     cluster=True,
                                     id="geomap",
                                     zoomToBoundsOnClick=True,
-                                    zoomToBounds=True,
+                                    zoomToBounds=False,
                                     superClusterOptions={"radius": 100},
+                                    options=dict(pointToLayer=ns("pointToLayer")),
+                                    hoverStyle=arrow_function(dict(weight=5, color='red', dashArray='')),
                                 ),
                                 info,
                             ],
@@ -290,7 +332,7 @@ map = html.Div(
                             zoom=7,
                             style={
                                 "width": "100%",
-                                "height": "70vh",
+                                "height": "50vh",
                                 "margin": "auto",
                                 "display": "block",
                             },
@@ -309,7 +351,8 @@ umap = html.Div(
             [
                 dbc.CardBody(
                     [
-                        html.H4("UMAP of Image embeddings", className="card-title"),
+                        html.H4("UMAP of Image embeddings",
+                                className="card-title"),
                         dcc.Graph(
                             id="umap",
                             figure=figures["umap"],
@@ -322,6 +365,25 @@ umap = html.Div(
     ]
 )
 
+table = html.Div(
+    [
+        dbc.Card(
+            [
+                dbc.CardBody(
+                    [
+                        html.H4("Ranked houses", className="card-title"),
+                        dash_table.DataTable(
+                            data=figures["table"],
+                            id="housetable",
+                            page_current=0,
+                            page_size=6
+                        )
+                    ]
+                )
+            ]
+        )
+    ]
+)
 
 prompt_holders = html.Div(
     [
@@ -339,7 +401,21 @@ prompt_holders = html.Div(
                     html.Div(id="previous_prompts"),
                 ]
             ),
-            style={"width": "100%", "margin-bottom": "20px"},
+            style={"width": "100%", "marginBottom": "20px"},
+        ),
+        html.Div(
+            html.Div(
+                [
+                    dbc.Button(
+                        "Reset",
+                        id="reset_button",
+                        n_clicks=0,
+                        style={"marginRight": "5px"},
+                    ),
+                    dbc.Button("Undo", id="undo_button", n_clicks=0),
+                ]
+            ),
+            style={"marginTop": "10px"},
         ),
         html.Div(
             [
@@ -364,26 +440,12 @@ prompt_holders = html.Div(
                 ),
                 html.Div(id="output-image-upload"),
             ]
-        ),
-        html.Div(
-            html.Div(
-                [
-                    dbc.Button(
-                        "Reset",
-                        id="reset_button",
-                        n_clicks=0,
-                        style={"margin-right": "5px"},
-                    ),
-                    dbc.Button("Undo", id="undo_button", n_clicks=0),
-                ]
-            ),
-            style={"margin-top": "10px"},
-        ),
+        )
     ],
-    style={"margin-left": "10px"},
+    style={"marginLeft": "10px"},
 )
 
-map_meta_data = dbc.Stack([map, html.Div("Meta Data Comes Here")])
+map_meta_data = dbc.Stack([map, table])
 
 imgs_placeholder = [
     "42194016/image1.jpeg",
@@ -422,7 +484,8 @@ slider = html.Div(
 image_table_holders = dbc.Card(
     dbc.CardBody(
         [
-            html.H4("Images of the clicked house", style={"margin-left": "10px"}),
+            html.H4("Images of the clicked house",
+                    style={"marginLeft": "10px"}),
             html.Div(id="image_container", children=slider),
         ]
     )
@@ -447,7 +510,8 @@ mini_plot_holder = dbc.Stack(
         dbc.Card(
             dbc.CardBody(
                 [
-                    html.H6("Pie Chart of Energy Labels", className="card-title"),
+                    html.H6("Pie Chart of Energy Labels",
+                            className="card-title"),
                     dcc.Graph(
                         id="pie",
                         figure=figures["pie"],
@@ -501,6 +565,7 @@ app.layout = app_main
         Output("histo", "figure", allow_duplicate=True),
         Output("pie", "figure", allow_duplicate=True),
         Output("scatter", "figure", allow_duplicate=True),
+        Output("housetable", "data", allow_duplicate=True)
     ],
     Input("mapstate", "bounds"),
     prevent_initial_call=True,
@@ -508,19 +573,20 @@ app.layout = app_main
 def on_pan_geomap(bounds):
     ((lat_min, lon_min), (lat_max, lon_max)) = bounds
 
-    print(bounds)
-
     df = state["stack"][-1]["df"]
     subset = df.loc[
-        df["lat"].between(lat_min, lat_max) & df["lon"].between(lon_min, lon_max)
+        df["lat"].between(lat_min, lat_max) & df["lon"].between(
+            lon_min, lon_max)
     ]
+    state["stack"][-1]["subset"] = subset
     return update_plots(subset)
 
 
 @callback(
-    [   
+    [
         Output("output-image-upload", "children"),
-        Output("umap", "figure", allow_duplicate=True)
+        Output("umap", "figure", allow_duplicate=True),
+        Output("housetable", "data", allow_duplicate=True)
     ],
     Input('upload-image', 'contents'),
     State('upload-image', 'filename'),
@@ -539,15 +605,18 @@ def update_uploaded_image(content, name):
         image_bytes = io.BytesIO(decoded_bytes)
         image = Image.open(image_bytes)
 
-        ClipStuff.query_clip_embedding = ClipStuff.model.get_visual_emb_for_img(image)
+        ClipStuff.query_clip_embedding = ClipStuff.model.get_visual_emb_for_img(
+            image)
 
         children = [
             parse_contents(c, n)
             for c, n in zip([content], [name])
         ]
 
-        figures["umap"] = create_umap(state["stack"][-1]["df"])
-        return children, figures["umap"]
+        curr = current()
+        figures["umap"] = create_umap(curr)
+        figures["table"] = create_table_df(curr)
+        return children, figures["umap"], figures["table"]
 
     ClipStuff.reset()
 
@@ -563,6 +632,7 @@ def info_hover(feature):
         Output("histo", "figure", allow_duplicate=True),
         Output("pie", "figure", allow_duplicate=True),
         Output("scatter", "figure", allow_duplicate=True),
+        Output("housetable", "data", allow_duplicate=True),
         Output("geomap", "data", allow_duplicate=True),
         Output("previous_prompts", "children", allow_duplicate=True),
     ],
@@ -578,9 +648,9 @@ def on_input_prompt(text_prompt):
     reduced_points = state["stack"][-1]["df"].query(text_prompt)
     geomap = dlx.dicts_to_geojson(reduced_points.to_dict("records"))
 
-    umap, histo, pie, scatter = update_plots(reduced_points)
+    umap, histo, pie, scatter, housetable = update_plots(reduced_points)
 
-    return (umap, histo, pie, scatter, geomap, prompt_list)
+    return (umap, histo, pie, scatter, housetable, geomap, prompt_list)
 
 
 @callback(
@@ -642,10 +712,8 @@ def on_hover(geo, umap):
     if idx is None:
         return None
 
-    update_colors(idx=idx)
-
     # Use the latest dataframe to get the on hover information.
-    df = state["stack"][-1]["df"]
+    df = current()
     imgs = df.loc[df["funda"] == funda, "images_paths"]
     encoded_image = [
         base64.b64encode(open(f"{IMAGES_PATH}/{img}", "rb").read())
@@ -685,7 +753,6 @@ def update_image(value):
 
     image_path = state["children"][int(value)]
     return image_path
-
 
 # #
 # --------------- Main ----------------
