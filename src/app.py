@@ -6,6 +6,7 @@ import os
 import dash_bootstrap_components as dbc
 import dash_leaflet as dl
 import dash_leaflet.express as dlx
+from dash_extensions.javascript import Namespace, arrow_function
 import numpy as np
 import pandas as pd
 import plotly.express as px
@@ -226,7 +227,7 @@ def parse_contents(contents, filename):
             # that is supplied by the upload
             html.Img(
                 src=contents,
-                style={"width": "100%", "height": "100%", "margin-top": "10px"},
+                style={"width": "100%", "height": "100%", "marginTop": "10px"},
             ),
             html.Hr(),
         ]
@@ -261,13 +262,13 @@ info = html.Div(
         "position": "absolute",
         "top": "10px",
         "right": "10px",
-        "z-index": "1000",
+        "zIndex": "1000",
         "color": "black",
-        "pointer-events": "none",
+        "pointerEvents": "none",
     },
 )
 
-
+ns = Namespace("myNamespace", "mySubNamespace")
 map = html.Div(
     [
         dbc.Card(
@@ -291,6 +292,8 @@ map = html.Div(
                                     zoomToBoundsOnClick=True,
                                     zoomToBounds=True,
                                     superClusterOptions={"radius": 100},
+                                    options=dict(pointToLayer=ns("pointToLayer")),
+                                    hoverStyle=arrow_function(dict(weight=5, color='red', dashArray='')),
                                 ),
                                 info,
                             ],
@@ -348,7 +351,7 @@ prompt_holders = html.Div(
                     html.Div(id="previous_prompts"),
                 ]
             ),
-            style={"width": "100%", "margin-bottom": "20px"},
+            style={"width": "100%", "marginBottom": "20px"},
         ),
         html.Div(
             [
@@ -381,15 +384,15 @@ prompt_holders = html.Div(
                         "Reset",
                         id="reset_button",
                         n_clicks=0,
-                        style={"margin-right": "5px"},
+                        style={"marginRight": "5px"},
                     ),
                     dbc.Button("Undo", id="undo_button", n_clicks=0),
                 ]
             ),
-            style={"margin-top": "10px"},
+            style={"marginTop": "10px"},
         ),
     ],
-    style={"margin-left": "10px"},
+    style={"marginLeft": "10px"},
 )
 
 map_meta_data = dbc.Stack([map, html.Div("Meta Data Comes Here")])
@@ -432,7 +435,7 @@ image_table_holders = dbc.Card(
     dbc.CardBody(
         [
             html.H4("Images of the clicked house",
-                    style={"margin-left": "10px"}),
+                    style={"marginLeft": "10px"}),
             html.Div(id="image_container", children=slider),
         ]
     )
@@ -518,8 +521,6 @@ app.layout = app_main
 )
 def on_pan_geomap(bounds):
     ((lat_min, lon_min), (lat_max, lon_max)) = bounds
-
-    print(bounds)
 
     df = state["stack"][-1]["df"]
     subset = df.loc[
@@ -698,7 +699,6 @@ def update_image(value):
 
     image_path = state["children"][int(value)]
     return image_path
-
 
 # #
 # --------------- Main ----------------
