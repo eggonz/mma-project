@@ -1,25 +1,23 @@
 import base64
 import io
-import re
 import os
+import re
 from typing import Any
 
+import dash.exceptions
 import dash_bootstrap_components as dbc
 import dash_leaflet as dl
 import dash_leaflet.express as dlx
-from dash_extensions.javascript import Namespace, arrow_function
 import numpy as np
 import pandas as pd
 import plotly.express as px
 from PIL import Image
+from dash import Dash, Input, Output, State, callback, ctx, dash_table, dcc, html, no_update
+from dash_extensions.javascript import Namespace, arrow_function
 
 import gpt
-from dash import Dash, Input, Output, State, callback, ctx, dash_table, dcc, html, no_update
-import dash.exceptions
-
 from clip import load_clip_model, compute_emb_distances
 from dataset import FundaPrecomputedEmbeddings
-
 
 ASSETS_PATH = os.getenv("ASSETS_PATH")
 ADS_PATH = os.getenv("ADS_PATH")
@@ -159,7 +157,6 @@ labels = dict(
 def create_pie(data):
     pie_df = data["energy_label"].value_counts().reset_index()
     pie_df["label"] = pie_df["energy_label"].astype(int).map(labels)
-    pie_df = pie_df.sort_values("label")
     fig = px.pie(
         pie_df,
         names="label",
@@ -168,7 +165,6 @@ def create_pie(data):
     fig.update_layout(
         margin={"r": 0, "t": 0, "l": 0, "b": 0},
     )
-
     return fig
 
 def create_scatter(data):
