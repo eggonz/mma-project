@@ -404,6 +404,20 @@ prompt_holders = html.Div(
             style={"width": "100%", "marginBottom": "20px"},
         ),
         html.Div(
+            html.Div(
+                [
+                    dbc.Button(
+                        "Reset",
+                        id="reset_button",
+                        n_clicks=0,
+                        style={"marginRight": "5px"},
+                    ),
+                    dbc.Button("Undo", id="undo_button", n_clicks=0),
+                ]
+            ),
+            style={"marginTop": "10px"},
+        ),
+        html.Div(
             [
                 dcc.Upload(
                     id="upload-image",
@@ -426,21 +440,7 @@ prompt_holders = html.Div(
                 ),
                 html.Div(id="output-image-upload"),
             ]
-        ),
-        html.Div(
-            html.Div(
-                [
-                    dbc.Button(
-                        "Reset",
-                        id="reset_button",
-                        n_clicks=0,
-                        style={"marginRight": "5px"},
-                    ),
-                    dbc.Button("Undo", id="undo_button", n_clicks=0),
-                ]
-            ),
-            style={"marginTop": "10px"},
-        ),
+        )
     ],
     style={"marginLeft": "10px"},
 )
