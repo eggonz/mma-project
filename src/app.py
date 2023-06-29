@@ -121,6 +121,7 @@ def create_umap(houses):
         xaxis={"visible": False, "showticklabels": False},
         yaxis={"visible": False, "showticklabels": False},
     )
+    fig.update_traces(hoverinfo="none", hovertemplate=None)
 
     return fig
 
@@ -388,6 +389,7 @@ umap = html.Div(
                             figure=figures["umap"],
                             style={"width": "100%", "height": "60%"},
                         ),
+                        dcc.Tooltip(id="umap-tooltip"),
                     ]
                 ),
             ]
@@ -621,7 +623,7 @@ def on_click_umap(umap):
         funda, idx = umap["points"][0]["customdata"][0], umap["points"][0]["pointIndex"]
     lat,lon = df.loc[df["funda"] == funda, "lat"].iloc[0], df.loc[df["funda"] == funda, "lon"].iloc[0]
     coordinates = (lat,lon)
-    return [coordinates, 13]
+    return [coordinates, 15]
 
 
 
@@ -737,6 +739,27 @@ def on_button_reset(n_clicks):
     return figures["umap"], points, prompt_list, []
 
 
+@callback(
+[   Output("umap-tooltip", "show"),
+    Output("umap-tooltip", "bbox"),
+    Output("umap-tooltip", "children")
+],
+    Input("umap", "hoverData"),
+    prevent_initial_call=True,
+)
+def on_umap_hover(umap):
+    if umap is not None and ctx.triggered_id == "umap":
+        bbox, img = umap["points"][0]["bbox"], umap["points"][0]["customdata"][1]
+
+    encoded_image = base64.b64encode(open(f"{IMAGES_PATH}/{img}", "rb").read())
+    children = [
+        html.Div([
+        html.Img(
+            src="data:image/png;base64,{}".format(encoded_image.decode()), 
+            style={"height": "100%", "width": "100%"}
+        )], style={'width': '100px', 'white-space': 'normal'})
+    ]
+    return [True, bbox, children]
 @callback(
     [Output("image_container", "children")],
     Input("geomap", "click_feature"),
