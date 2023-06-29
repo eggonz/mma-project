@@ -371,7 +371,7 @@ map = html.Div(
                                     id="geomap",
                                     zoomToBoundsOnClick=True,
                                     zoomToBounds=False,
-                                    superClusterOptions={"radius": 100},
+                                    superClusterOptions={"radius": 100, "minPoints": 30},
                                     options=dict(pointToLayer=ns("pointToLayer")),
                                     hoverStyle=arrow_function(
                                         dict(weight=5, color="red", dashArray="")
@@ -612,7 +612,7 @@ def on_click_scatter(scatter):
         funda = scatter["points"][0]["customdata"][0]
     lat,lon = df.loc[df["funda"] == funda, "lat"].iloc[0], df.loc[df["funda"] == funda, "lon"].iloc[0]
     coordinates = (lat,lon)
-    return [coordinates, 15]
+    return [coordinates, 17]
 
 @callback(
     [
@@ -652,7 +652,7 @@ def on_click_umap(umap):
         df.loc[df["funda"] == funda, "lon"].iloc[0],
     )
     coordinates = (lat, lon)
-    return [coordinates, 15]
+    return [coordinates, 17]
 
 
 @callback(
