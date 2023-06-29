@@ -61,7 +61,7 @@ def get_pretty_prompt(filter_str: str) -> str:
         "The output is a brief keywords summary representation of the input. "
         "The user must be able to understand and interpret the output in a single glance. "
         "The output must be minimalistic, and must only contain key values (values of the expression) and logical operators (using words, e.g. OR). "
-        "Symbols like '<' and '[' will be used for value range limits and list attributes. "
+        "The output must include symbols like '<' and '[' for value range limits and list attributes whenever possible, to enhance compactness in the output expression. "
     )
 
     out = openai.ChatCompletion.create(
