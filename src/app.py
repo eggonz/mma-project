@@ -49,6 +49,26 @@ df = pd.read_pickle(ADS_PATH)
 
 #     return fig
 
+def create_table_df(houses):
+    houses_ids = houses['funda'].unique()
+
+    filtered_embeddings = ClipStuff.dataset_clip_embeddings.filter_ids(
+        houses_ids)
+
+    if ClipStuff.query_clip_embedding is None:
+        ClipStuff.ranking = np.zeros(len(filtered_embeddings))
+
+    ranked_houses = filtered_embeddings.rank_houses(ClipStuff.ranking)
+
+    return houses.loc[
+        ranked_houses,
+        [
+            "funda", "address", "neighborhood", "city",
+            "price", "construction_year", "nr_rooms",
+            "nr_bedrooms", "energy_label", "house_type",
+            "living_area_size", "plot_size"
+        ]
+    ]
 
 def create_umap(houses):
     houses_ids = houses['funda'].unique()
@@ -131,8 +151,14 @@ state = {
     "children": None,
 }
 
-figures = {"geomap": None, "umap": None,
-           "histo": None, "pie": None, "scatter": None}
+figures = {
+    "geomap": None,
+    "umap": None,
+    "histo": None,
+    "pie": None,
+    "scatter": None,
+    "table": None
+}
 
 
 class ClipStuff:
@@ -163,8 +189,15 @@ def update_plots(houses):
     figures["histo"] = create_histo(houses)
     figures["pie"] = create_pie(houses)
     figures["scatter"] = create_scatter(houses)
+    figures["table"] = create_table_df(houses)
 
-    return (figures["umap"], figures["histo"], figures["pie"], figures["scatter"])
+    return (
+        figures["umap"],
+        figures["histo"],
+        figures["pie"],
+        figures["scatter"],
+        figures["table"]
+    )
 
 
 def reduce_houses(text_prompt):
@@ -334,6 +367,20 @@ umap = html.Div(
     ]
 )
 
+table = html.Div(
+    [
+        dbc.Card(
+            [
+                dbc.CardBody(
+                    [
+                        html.H4("Ranked houses", className="card-title"),
+                        dash_table.DataTable(figures["table"], id="housetable", page_size=8)
+                    ]
+                )
+            ]
+        )
+    ]
+)
 
 prompt_holders = html.Div(
     [
@@ -395,7 +442,7 @@ prompt_holders = html.Div(
     style={"marginLeft": "10px"},
 )
 
-map_meta_data = dbc.Stack([map, html.Div("Meta Data Comes Here")])
+map_meta_data = dbc.Stack([map, table])
 
 imgs_placeholder = [
     "42194016/image1.jpeg",
@@ -515,6 +562,7 @@ app.layout = app_main
         Output("histo", "figure", allow_duplicate=True),
         Output("pie", "figure", allow_duplicate=True),
         Output("scatter", "figure", allow_duplicate=True),
+        Output("housetable", "data", allow_duplicate=True)
     ],
     Input("mapstate", "bounds"),
     prevent_initial_call=True,
@@ -533,7 +581,8 @@ def on_pan_geomap(bounds):
 @callback(
     [
         Output("output-image-upload", "children"),
-        Output("umap", "figure", allow_duplicate=True)
+        Output("umap", "figure", allow_duplicate=True),
+        Output("housetable", "data", allow_duplicate=True)
     ],
     Input('upload-image', 'contents'),
     State('upload-image', 'filename'),
@@ -561,7 +610,8 @@ def update_uploaded_image(content, name):
         ]
 
         figures["umap"] = create_umap(state["stack"][-1]["df"])
-        return children, figures["umap"]
+        figures["table"] = create_table_df(state["stack"][-1]["df"])
+        return children, figures["umap"], figures["table"]
 
     ClipStuff.reset()
 
@@ -577,6 +627,7 @@ def info_hover(feature):
         Output("histo", "figure", allow_duplicate=True),
         Output("pie", "figure", allow_duplicate=True),
         Output("scatter", "figure", allow_duplicate=True),
+        Output("housetable", "data", allow_duplicate=True),
         Output("geomap", "data", allow_duplicate=True),
         Output("previous_prompts", "children", allow_duplicate=True),
     ],
@@ -592,9 +643,9 @@ def on_input_prompt(text_prompt):
     reduced_points = state["stack"][-1]["df"].query(text_prompt)
     geomap = dlx.dicts_to_geojson(reduced_points.to_dict("records"))
 
-    umap, histo, pie, scatter = update_plots(reduced_points)
+    umap, histo, pie, scatter, housetable = update_plots(reduced_points)
 
-    return (umap, histo, pie, scatter, geomap, prompt_list)
+    return (umap, histo, pie, scatter, housetable, geomap, prompt_list)
 
 
 @callback(
