@@ -2,6 +2,7 @@ import base64
 import io
 import re
 import os
+from typing import Any
 
 import dash_bootstrap_components as dbc
 import dash_leaflet as dl
@@ -126,7 +127,7 @@ state = {
     "children": None,
 }
 
-figures = {"geomap": None, "umap": None, "histo": None, "pie": None, "scatter": None}
+figures: dict[str, Any] = {"geomap": None, "umap": None, "histo": None, "pie": None, "scatter": None}
 
 
 class ClipStuff:
@@ -508,8 +509,6 @@ app.layout = app_main
 def on_pan_geomap(bounds):
     ((lat_min, lon_min), (lat_max, lon_max)) = bounds
 
-    print(bounds)
-
     df = state["stack"][-1]["df"]
     subset = df.loc[
         df["lat"].between(lat_min, lat_max) & df["lon"].between(lon_min, lon_max)
@@ -519,7 +518,7 @@ def on_pan_geomap(bounds):
 
 @callback(
     [   
-        Output("output-image-upload", "children"),
+        Output("output-image-upload", "children", allow_duplicate=True),
         Output("umap", "figure", allow_duplicate=True)
     ],
     Input('upload-image', 'contents'),
@@ -608,6 +607,7 @@ def on_button_undo(n_clicks):
         Output("umap", "figure", allow_duplicate=True),
         Output("geomap", "data", allow_duplicate=True),
         Output("previous_prompts", "children", allow_duplicate=True),
+        Output("output-image-upload", "children", allow_duplicate=True),
     ],
     Input("reset_button", "n_clicks"),
     prevent_initial_call=True,
@@ -620,7 +620,10 @@ def on_button_reset(n_clicks):
     prompt_list = update_prompt_list()
     points = dlx.dicts_to_geojson(df.to_dict("records"))
 
-    return figures["umap"], points, prompt_list
+    ClipStuff.reset()
+    figures["umap"] = create_umap(state["stack"][-1]["df"])
+
+    return figures["umap"], points, prompt_list, []
 
 
 @callback(
