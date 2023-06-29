@@ -2,6 +2,7 @@ import base64
 import io
 import re
 import os
+from typing import Any
 
 import dash_bootstrap_components as dbc
 import dash_leaflet as dl
@@ -13,8 +14,7 @@ import plotly.express as px
 from PIL import Image
 
 import gpt
-from dash import (Dash, Input, Output, State, callback, ctx, dash_table, dcc,
-                  html)
+from dash import Dash, Input, Output, State, callback, ctx, dash_table, dcc, html
 
 from clip import load_clip_model, compute_emb_distances
 from dataset import FundaPrecomputedEmbeddings
@@ -49,48 +49,69 @@ df = pd.read_pickle(ADS_PATH)
 
 #     return fig
 
-def create_table_df(houses):
-    houses_ids = houses['funda'].unique()
 
-    filtered_embeddings = ClipStuff.dataset_clip_embeddings.filter_ids(
-        houses_ids)
+def create_table_df(houses):
+    houses_ids = houses["funda"].unique()
+
+    filtered_embeddings = ClipStuff.dataset_clip_embeddings.filter_ids(houses_ids)
 
     if ClipStuff.query_clip_embedding is None:
         ClipStuff.ranking = np.zeros(len(filtered_embeddings))
 
     ranked_houses = filtered_embeddings.rank_houses(ClipStuff.ranking)
 
-    return houses.loc[
-        ranked_houses,
-        [
-            "funda", "city", "price", "plot_size"
-            # "address", "neighborhood", "city",
-            # "price", "construction_year", "nr_rooms",
-            # "nr_bedrooms", "energy_label", "house_type",
-            # "living_area_size", "plot_size"
+    return (
+        houses.loc[
+            ranked_houses,
+            [
+                "funda",
+                "city",
+                "price",
+                "plot_size"
+                # "address", "neighborhood", "city",
+                # "price", "construction_year", "nr_rooms",
+                # "nr_bedrooms", "energy_label", "house_type",
+                # "living_area_size", "plot_size"
+            ],
         ]
-    ].reset_index(drop=True).to_dict("records")
+        .reset_index(drop=True)
+        .to_dict("records")
+    )
+
 
 def create_umap(houses):
-    houses_ids = houses['funda'].unique()
+    houses_ids = houses["funda"].unique()
 
-    filtered_embeddings = ClipStuff.dataset_clip_embeddings.filter_ids(
-        houses_ids)
+    filtered_embeddings = ClipStuff.dataset_clip_embeddings.filter_ids(houses_ids)
     umap_coords = filtered_embeddings.get_all_umaps()
 
     if ClipStuff.query_clip_embedding is None:
         ClipStuff.ranking = np.zeros(len(filtered_embeddings))
     else:
         ClipStuff.ranking = compute_emb_distances(
-            ClipStuff.query_clip_embedding, filtered_embeddings.get_all_embeddings())
+            ClipStuff.query_clip_embedding, filtered_embeddings.get_all_embeddings()
+        )
 
     color = np.tanh(ClipStuff.ranking / 0.1)
-    data = pd.DataFrame({'umapx': umap_coords[:, 0], 'umapy': umap_coords[:, 1],
-                        'rank': color, 'funda_id': filtered_embeddings.get_all_ids()})
-    size = np.clip(color*0.25+0.25, 0, 0.5)
+    data = pd.DataFrame(
+        {
+            "umapx": umap_coords[:, 0],
+            "umapy": umap_coords[:, 1],
+            "rank": color,
+            "funda_id": filtered_embeddings.get_all_ids(),
+        }
+    )
+    size = np.clip(color * 0.25 + 0.25, 0, 0.5)
 
-    fig = px.scatter(data, x="umapx", y="umapy", color="rank",
-                     size=size, custom_data=['funda_id'], opacity=0.5)
+    fig = px.scatter(
+        data,
+        x="umapx",
+        y="umapy",
+        color="rank",
+        size=size,
+        custom_data=["funda_id"],
+        opacity=0.5,
+    )
 
     fig.update_layout(
         margin={"r": 0, "t": 0, "l": 0, "b": 0},
@@ -152,25 +173,26 @@ state = {
     "children": None,
 }
 
+
 def current() -> pd.DataFrame:
     curr = state["stack"][-1]
     return curr["df"] if curr["subset"] is None else curr["subset"]
 
-figures = {
+
+figures: dict[str, Any] = {
     "geomap": None,
     "umap": None,
     "histo": None,
     "pie": None,
     "scatter": None,
-    "table": None
+    "table": None,
 }
 
 
 class ClipStuff:
     model = load_clip_model()
     query_clip_embedding = None
-    dataset_clip_embeddings = FundaPrecomputedEmbeddings.from_pickle(
-        EMBEDDINGS_PATH)
+    dataset_clip_embeddings = FundaPrecomputedEmbeddings.from_pickle(EMBEDDINGS_PATH)
     ranking = None
 
     @staticmethod
@@ -180,8 +202,7 @@ class ClipStuff:
 
 
 app = Dash(
-    __name__, assets_folder=ASSETS_PATH, external_stylesheets=[
-        dbc.themes.LITERA]
+    __name__, assets_folder=ASSETS_PATH, external_stylesheets=[dbc.themes.LITERA]
 )
 
 # #
@@ -201,7 +222,7 @@ def update_plots(houses):
         figures["histo"],
         figures["pie"],
         figures["scatter"],
-        figures["table"]
+        figures["table"],
     )
 
 
@@ -316,15 +337,16 @@ map = html.Div(
                             [
                                 dl.TileLayer(),
                                 dl.GeoJSON(
-                                    data=dlx.dicts_to_geojson(
-                                        df.to_dict("records")),
+                                    data=dlx.dicts_to_geojson(df.to_dict("records")),
                                     cluster=True,
                                     id="geomap",
                                     zoomToBoundsOnClick=True,
                                     zoomToBounds=False,
                                     superClusterOptions={"radius": 100},
                                     options=dict(pointToLayer=ns("pointToLayer")),
-                                    hoverStyle=arrow_function(dict(weight=5, color='red', dashArray='')),
+                                    hoverStyle=arrow_function(
+                                        dict(weight=5, color="red", dashArray="")
+                                    ),
                                 ),
                                 info,
                             ],
@@ -351,8 +373,7 @@ umap = html.Div(
             [
                 dbc.CardBody(
                     [
-                        html.H4("UMAP of Image embeddings",
-                                className="card-title"),
+                        html.H4("UMAP of Image embeddings", className="card-title"),
                         dcc.Graph(
                             id="umap",
                             figure=figures["umap"],
@@ -376,8 +397,8 @@ table = html.Div(
                             data=figures["table"],
                             id="housetable",
                             page_current=0,
-                            page_size=6
-                        )
+                            page_size=6,
+                        ),
                     ]
                 )
             ]
@@ -440,7 +461,7 @@ prompt_holders = html.Div(
                 ),
                 html.Div(id="output-image-upload"),
             ]
-        )
+        ),
     ],
     style={"marginLeft": "10px"},
 )
@@ -484,8 +505,7 @@ slider = html.Div(
 image_table_holders = dbc.Card(
     dbc.CardBody(
         [
-            html.H4("Images of the clicked house",
-                    style={"marginLeft": "10px"}),
+            html.H4("Images of the clicked house", style={"marginLeft": "10px"}),
             html.Div(id="image_container", children=slider),
         ]
     )
@@ -510,8 +530,7 @@ mini_plot_holder = dbc.Stack(
         dbc.Card(
             dbc.CardBody(
                 [
-                    html.H6("Pie Chart of Energy Labels",
-                            className="card-title"),
+                    html.H6("Pie Chart of Energy Labels", className="card-title"),
                     dcc.Graph(
                         id="pie",
                         figure=figures["pie"],
@@ -565,7 +584,7 @@ app.layout = app_main
         Output("histo", "figure", allow_duplicate=True),
         Output("pie", "figure", allow_duplicate=True),
         Output("scatter", "figure", allow_duplicate=True),
-        Output("housetable", "data", allow_duplicate=True)
+        Output("housetable", "data", allow_duplicate=True),
     ],
     Input("mapstate", "bounds"),
     prevent_initial_call=True,
@@ -575,8 +594,7 @@ def on_pan_geomap(bounds):
 
     df = state["stack"][-1]["df"]
     subset = df.loc[
-        df["lat"].between(lat_min, lat_max) & df["lon"].between(
-            lon_min, lon_max)
+        df["lat"].between(lat_min, lat_max) & df["lon"].between(lon_min, lon_max)
     ]
     state["stack"][-1]["subset"] = subset
     return update_plots(subset)
@@ -601,13 +619,13 @@ def on_click_umap(umap):
 
 @callback(
     [
-        Output("output-image-upload", "children"),
+        Output("output-image-upload", "children", allow_duplicate=True),
         Output("umap", "figure", allow_duplicate=True),
-        Output("housetable", "data", allow_duplicate=True)
+        Output("housetable", "data", allow_duplicate=True),
     ],
-    Input('upload-image', 'contents'),
-    State('upload-image', 'filename'),
-    prevent_initial_call=True
+    Input("upload-image", "contents"),
+    State("upload-image", "filename"),
+    prevent_initial_call=True,
 )
 def update_uploaded_image(content, name):
     """
@@ -617,18 +635,14 @@ def update_uploaded_image(content, name):
     name: name of the uploaded file
     """
     if content is not None:
-        clean_content = re.sub('^data:image/.+;base64,', '', content)
+        clean_content = re.sub("^data:image/.+;base64,", "", content)
         decoded_bytes = base64.b64decode(clean_content)
         image_bytes = io.BytesIO(decoded_bytes)
         image = Image.open(image_bytes)
 
-        ClipStuff.query_clip_embedding = ClipStuff.model.get_visual_emb_for_img(
-            image)
+        ClipStuff.query_clip_embedding = ClipStuff.model.get_visual_emb_for_img(image)
 
-        children = [
-            parse_contents(c, n)
-            for c, n in zip([content], [name])
-        ]
+        children = [parse_contents(c, n) for c, n in zip([content], [name])]
 
         curr = current()
         figures["umap"] = create_umap(curr)
@@ -695,6 +709,7 @@ def on_button_undo(n_clicks):
         Output("umap", "figure", allow_duplicate=True),
         Output("geomap", "data", allow_duplicate=True),
         Output("previous_prompts", "children", allow_duplicate=True),
+        Output("output-image-upload", "children", allow_duplicate=True),
     ],
     Input("reset_button", "n_clicks"),
     prevent_initial_call=True,
@@ -707,7 +722,10 @@ def on_button_reset(n_clicks):
     prompt_list = update_prompt_list()
     points = dlx.dicts_to_geojson(df.to_dict("records"))
 
-    return figures["umap"], points, prompt_list
+    ClipStuff.reset()
+    figures["umap"] = create_umap(state["stack"][-1]["df"])
+
+    return figures["umap"], points, prompt_list, []
 
 
 @callback(
@@ -769,6 +787,7 @@ def update_image(value):
         return
     image_path = state["children"][int(value)]
     return image_path
+
 
 # #
 # --------------- Main ----------------
