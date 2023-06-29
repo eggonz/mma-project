@@ -15,6 +15,7 @@ from PIL import Image
 
 import gpt
 from dash import Dash, Input, Output, State, callback, ctx, dash_table, dcc, html
+import dash.exceptions
 
 from clip import load_clip_model, compute_emb_distances
 from dataset import FundaPrecomputedEmbeddings
@@ -26,13 +27,14 @@ EMBEDDINGS_PATH = os.getenv("EMBEDDINGS_PATH")
 IMAGES_PATH = os.getenv("IMAGES_PATH")
 
 # Comment this line if you want to use true GPT (need API key)
-gpt.get_pandas_query = gpt.get_pretty_prompt = lambda x: x
+# gpt.get_pandas_query = gpt.get_pretty_prompt = lambda x: x
 
 # #
 # --------------- Reading in some initial data ----------------
 # #
 
 df = pd.read_pickle(ADS_PATH)
+df["city"] = df["city"].str.lower()
 
 # print(df[["city", "nr_bedrooms", "energy_label"]])
 
@@ -101,7 +103,7 @@ def create_umap(houses):
             "umapy": umap_coords[:, 1],
             "rank": color,
             "funda_id": funda_ids,
-            "image_path": img_paths
+            "image_path": img_paths,
         }
     )
     size = np.clip(color * 0.25 + 0.25, 0, 0.5)
@@ -133,10 +135,28 @@ def create_histo(data):
 
     return fig
 
-labels = dict(zip(range(1, 14), [
-    'A+++++', 'A++++', 'A+++', 'A++', 'A+', 'A',
-    'B', 'C', 'D', 'E', 'F', 'G', 'N/A'
-]))
+
+labels = dict(
+    zip(
+        range(1, 14),
+        [
+            "A+++++",
+            "A++++",
+            "A+++",
+            "A++",
+            "A+",
+            "A",
+            "B",
+            "C",
+            "D",
+            "E",
+            "F",
+            "G",
+            "N/A",
+        ],
+    )
+)
+
 
 def create_pie(data):
     pie_df = data["energy_label"].value_counts().reset_index()
@@ -170,11 +190,11 @@ def create_scatter(data):
 # --------------- Global variables ----------------
 # #
 
-indices = [
-    42194016, 42194023, 42194046, 42194072, 42194086,
-    42194088, 42194092, 42194096, 42194098
-]
-df = df[df['funda'].isin(indices)]
+# indices = [
+#     42194016, 42194023, 42194046, 42194072, 42194086,
+#     42194088, 42194092, 42194096, 42194098
+# ]
+# df = df[df['funda'].isin(indices)]
 
 state = {
     "stack": [{"df": df, "prompt": "", "subset": None}],
@@ -240,12 +260,15 @@ def reduce_houses(text_prompt):
     filter_prompt = gpt.get_pandas_query(text_prompt)
     pretty_prompt = gpt.get_pretty_prompt(filter_prompt)
 
+    print(filter_prompt)
+    print(pretty_prompt)
+
     # update state
     if pretty_prompt in {p["prompt"] for p in state["stack"]}:
         return
 
     houses = state["stack"][-1]["df"].query(filter_prompt)
-    state["stack"].append({"df": houses, "prompt": pretty_prompt})
+    state["stack"].append({"df": houses, "prompt": pretty_prompt, "subset": None})
 
     update_plots(houses)
     return houses
@@ -608,6 +631,7 @@ def on_pan_geomap(bounds):
     state["stack"][-1]["subset"] = subset
     return update_plots(subset)
 
+
 @callback(
     [
         Output("mapstate", "center", allow_duplicate=True),
@@ -618,12 +642,13 @@ def on_pan_geomap(bounds):
 )
 def on_click_umap(umap):
     if umap is not None and ctx.triggered_id == "umap":
-        funda, idx = umap["points"][0]["customdata"][0], umap["points"][0]["pointIndex"]
-    lat,lon = df.loc[df["funda"] == funda, "lat"].iloc[0], df.loc[df["funda"] == funda, "lon"].iloc[0]
-    coordinates = (lat,lon)
+        funda = umap["points"][0]["customdata"][0]
+    lat, lon = (
+        df.loc[df["funda"] == funda, "lat"].iloc[0],
+        df.loc[df["funda"] == funda, "lon"].iloc[0],
+    )
+    coordinates = (lat, lon)
     return [coordinates, 13]
-
-
 
 
 @callback(
@@ -680,12 +705,11 @@ def info_hover(feature):
     prevent_initial_call=True,
 )
 def on_input_prompt(text_prompt):
-    if text_prompt is None:
-        return
-    reduce_houses(text_prompt)
-    prompt_list = update_prompt_list()
+    if not isinstance(text_prompt, str) or len(text_prompt) < 15:
+        raise dash.exceptions.PreventUpdate
 
-    reduced_points = state["stack"][-1]["df"].query(text_prompt)
+    reduced_points = reduce_houses(text_prompt)
+    prompt_list = update_prompt_list()
     geomap = dlx.dicts_to_geojson(reduced_points.to_dict("records"))
 
     umap, histo, pie, scatter, housetable = update_plots(reduced_points)
@@ -704,7 +728,7 @@ def on_input_prompt(text_prompt):
 )
 def on_button_undo(n_clicks):
     if n_clicks is None:
-        return
+        raise dash.exceptions.PreventUpdate
 
     undo()
     prompt_list = update_prompt_list()
@@ -725,7 +749,7 @@ def on_button_undo(n_clicks):
 )
 def on_button_reset(n_clicks):
     if n_clicks is None:
-        return
+        raise dash.exceptions.PreventUpdate
 
     reset()
     prompt_list = update_prompt_list()
@@ -754,7 +778,7 @@ def on_hover(geo, umap):
         funda, idx = umap["points"][0]["customdata"][0], umap["points"][0]["pointIndex"]
 
     if idx is None:
-        return None
+        raise dash.exceptions.PreventUpdate
 
     # Use the latest dataframe to get the on hover information.
     df = current()
@@ -793,7 +817,7 @@ def on_hover(geo, umap):
 @app.callback(Output("image-container", "children"), [Input("image-slider", "value")])
 def update_image(value):
     if value is None:
-        return
+        raise dash.exceptions.PreventUpdate
     image_path = state["children"][int(value)]
     return image_path
 
