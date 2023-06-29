@@ -371,7 +371,7 @@ map = html.Div(
                                     id="geomap",
                                     zoomToBoundsOnClick=True,
                                     zoomToBounds=False,
-                                    superClusterOptions={"radius": 100, "minPoints": 30},
+                                    superClusterOptions={"radius": 100, "minPoints": 5},
                                     options=dict(pointToLayer=ns("pointToLayer")),
                                     hoverStyle=arrow_function(
                                         dict(weight=5, color="red", dashArray="")
