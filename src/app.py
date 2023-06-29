@@ -411,6 +411,7 @@ umap = html.Div(
                             id="umap",
                             figure=figures["umap"],
                             style={"width": "100%", "height": "60%"},
+                            clear_on_unhover=True
                         ),
                         dcc.Tooltip(id="umap-tooltip"),
                     ]
