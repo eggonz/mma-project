@@ -19,16 +19,11 @@ import gpt
 from clip import load_clip_model, compute_emb_distances
 from dataset import FundaPrecomputedEmbeddings
 
-# ASSETS_PATH = os.getenv("ASSETS_PATH")
-# ADS_PATH = os.getenv("ADS_PATH")
-# EMBEDDINGS_PATH = os.getenv("EMBEDDINGS_PATH")
-# IMAGES_PATH = os.getenv("IMAGES_PATH")
+ASSETS_PATH = os.getenv("ASSETS_PATH")
+ADS_PATH = os.getenv("ADS_PATH")
+EMBEDDINGS_PATH = os.getenv("EMBEDDINGS_PATH")
+IMAGES_PATH = os.getenv("IMAGES_PATH")
 
-
-ASSETS_PATH = "/home/miranda/Documents/school/UvA/6_MMA/mma-project/assets/"
-ADS_PATH = "./data/final.pkl"
-EMBEDDINGS_PATH = "./data/clip_embeddings/funda_images_tiny.pkl"
-IMAGES_PATH = "../Datasets/Funda/images"
 # Comment this line if you want to use true GPT (need API key)
 gpt.get_pandas_query = gpt.get_pretty_prompt = lambda x: x
 
