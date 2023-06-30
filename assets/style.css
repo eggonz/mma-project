@@ -16,7 +16,7 @@
  
 
 :root,
-[data-bs-theme=light] {
+/* [data-bs-theme=light] {
   --bs-blue: #007bff;
   --bs-indigo: #6610f2;
   --bs-purple: #6f42c1;
@@ -133,7 +133,7 @@
   --bs-form-valid-border-color: #56cc9d;
   --bs-form-invalid-color: #ff7851;
   --bs-form-invalid-border-color: #ff7851;
-}
+} */
 
 [data-bs-theme=dark] {
   color-scheme: dark;
@@ -474,7 +474,8 @@ textarea {
   line-height: inherit;
   border-width: 0;
   padding: 1rem;
-  background: #f0f1ee;
+  background-color: #474747;
+  color: #aaa;
 }
 
 
@@ -1877,15 +1878,15 @@ progress {
   --bs-table-bg-type: initial;
   --bs-table-color-state: initial;
   --bs-table-bg-state: initial;
-  --bs-table-color: var(--bs-body-color);
+  --bs-table-color: #fff; 
   --bs-table-bg: var(--bs-body-bg);
   --bs-table-border-color: rgba(0, 0, 0, 0.05);
   --bs-table-accent-bg: transparent;
-  --bs-table-striped-color: var(--bs-body-color);
+  --bs-table-striped-color: #fff;
   --bs-table-striped-bg: rgba(0, 0, 0, 0.05);
-  --bs-table-active-color: var(--bs-body-color);
+  --bs-table-active-color: #fff;
   --bs-table-active-bg: rgba(0, 0, 0, 0.1);
-  --bs-table-hover-color: var(--bs-body-color);
+  --bs-table-hover-color: #fff;
   --bs-table-hover-bg: rgba(0, 0, 0, 0.075);
   width: 100%;
   margin-bottom: 1rem;
@@ -4413,7 +4414,7 @@ textarea.form-control-lg {
   --bs-card-cap-color: ;
   --bs-card-height: ;
   --bs-card-color: ;
-  --bs-card-bg: white;
+  --bs-card-bg: #393939;
   --bs-card-img-overlay-padding: 1rem;
   --bs-card-group-margin: 0.75rem;
   position: relative;
@@ -12198,6 +12199,7 @@ legend {
     border-color: rgba(0, 0, 0, 0);
     
 }
+
 
 
 .card h1, .card .h1,

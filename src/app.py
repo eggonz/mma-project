@@ -30,7 +30,7 @@ ADS_PATH = "./data/final.pkl"
 EMBEDDINGS_PATH = "./data/clip_embeddings/funda_images_tiny.pkl"
 IMAGES_PATH = "../Datasets/Funda/images"
 # Comment this line if you want to use true GPT (need API key)
-# gpt.get_pandas_query = gpt.get_pretty_prompt = lambda x: x
+gpt.get_pandas_query = gpt.get_pretty_prompt = lambda x: x
 
 # #
 # --------------- Reading in some initial data ----------------
@@ -119,10 +119,12 @@ def create_umap(houses):
     )
 
     fig.update_layout(
-        plot_bgcolor = '#f0f1ee',
+        plot_bgcolor = '#474747',
+        paper_bgcolor = '#393939',
         margin={"r": 0, "t": 0, "l": 0, "b": 0},
         xaxis={"visible": False, "showticklabels": False},
         yaxis={"visible": False, "showticklabels": False},
+        font_color='#aaa'
     )
     fig.update_traces(hoverinfo="none", hovertemplate=None)
 
@@ -130,10 +132,12 @@ def create_umap(houses):
 
 
 def create_histo(data):
-    fig = px.histogram(data, x="price", nbins=20, labels={'price': 'price (€)'}, color_discrete_sequence=['#005F73'])
+    fig = px.histogram(data, x="price", nbins=20, labels={'price': 'price (€)'}, color_discrete_sequence=['#0A9396'])
     fig.update_layout(
-        plot_bgcolor = '#f0f1ee',
+        plot_bgcolor = '#393939',
+        paper_bgcolor = '#393939',
         margin={"r": 0, "t": 0, "l": 0, "b": 0},
+        font_color = '#aaa'
     )
 
     return fig
@@ -171,7 +175,9 @@ def create_pie(data):
         color_discrete_sequence=colorway
     )
     fig.update_layout(
-        margin={"r": 0, "t": 0, "l": 0, "b": 0},
+        paper_bgcolor = '#393939',
+        margin={"r": 10, "t": 0, "l": 0, "b": 0},
+        font_color = '#aaa'
     )
     return fig
 
@@ -182,11 +188,13 @@ def create_scatter(data):
         y="living_area_size",
         labels={'price': 'price (€)', 'living_area_size': 'area (m^2)'},
         custom_data=["funda"],
-        color_discrete_sequence=['#005F73']
+        color_discrete_sequence=['#0A9396']
     )
     fig.update_layout(
-        plot_bgcolor = '#f0f1ee',
+        plot_bgcolor = '#393939',
+        paper_bgcolor = '#393939',
         margin={"r": 0, "t": 0, "l": 0, "b": 0},
+        font_color = '#aaa'
     )
 
     return fig
@@ -375,7 +383,7 @@ map = html.Div(
                         ),
                         dl.Map(
                             [
-                                dl.TileLayer(),
+                                dl.TileLayer(url='https://tiles.stadiamaps.com/tiles/alidade_smooth_dark/{z}/{x}/{y}{r}.png', maxZoom=20, attribution='&copy; <a href="https://stadiamaps.com/">Stadia Maps</a>, &copy; <a href="https://openmaptiles.org/">OpenMapTiles</a> &copy; <a href="https://openstreetmap.org">OpenStreetMap</a> contributors'),
                                 dl.GeoJSON(
                                     data=dlx.dicts_to_geojson(df.to_dict("records")),
                                     cluster=True,
@@ -397,6 +405,7 @@ map = html.Div(
                                 "height": "50vh",
                                 "margin": "auto",
                                 "display": "block",
+                                "color": "white",
                             },
                             id="mapstate",
                         ),
@@ -413,7 +422,7 @@ umap = html.Div(
             [
                 dbc.CardBody(
                     [
-                        html.H4("Similarity Exploration", className="card-title"),
+                        html.H4("Similar Styled Houses", className="card-title"),
                         html.P(
                             "Space to explore houses with similar styles.",
                             className="card-text",
@@ -445,8 +454,8 @@ table = html.Div(
                             page_current=0,
                             page_size=6,
                             style_as_list_view=True,
-                            style_cell={"font-family": "Manrope", "textAlign": "left"},
-                            style_header={"backgroundColor": "#A49B98", "fontWeight": "700", "color": "white"}
+                            style_cell={"font-family": "Manrope", "textAlign": "left", 'color': '#aaa', "backgroundColor": "#393939", },
+                            style_header={"backgroundColor": "#A49B98", "fontWeight": "700", "color": "white", "border": "1px solid #A49B98"}
                         ),
                     ]
                 )
@@ -469,10 +478,10 @@ prompt_holders = html.Div(
                                         "Natural language description of the house requirements that will filter the displayed data.",
                                         className="card-text",
                                     ),
-                                    dcc.Textarea(
+                                    dcc.Input(
                                         id="text_prompt",
-                                        # type="text",
-                                        # debounce=True,
+                                        type="text",
+                                        debounce=True,
                                         placeholder="I want a house in Amsterdam or in Rotterdam",
                                         style={"width": "100%"},
                                     ),
@@ -484,13 +493,14 @@ prompt_holders = html.Div(
 
                         html.Div(
                             html.Div(
-                                [
+                                [   
+                                               
                                     dbc.Button(
                                         "Reset",
                                         id="reset_button",
                                         n_clicks=0,
-                                        style={"marginRight": "5px"},
-                                    ),
+                                        style={"marginRight": "5px"}
+                                         ),
                                     dbc.Button("Undo", id="undo_button", n_clicks=0),
                                 ]
                             ),
@@ -522,7 +532,7 @@ prompt_holders = html.Div(
                                         "border-color": "#A49B98",
                                         "textAlign": "center",
                                         "margin": "0px",
-                                        "background": "#f0f1ee"
+                                        "background": "#474747"
                                     },
                                     multiple=False,
                                 ),
