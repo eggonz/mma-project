@@ -70,18 +70,38 @@ class FundaPrecomputedEmbeddings:
             raise ValueError('UMap not computed')
         return np.stack([self.df['umap_x'].values, self.df['umap_y'].values]).T
 
+    def get_all_ids(self) -> list[int]:
+        """
+        Returns all the ids
+        """
+        return [int(idx.split('/')[0]) for idx in self.df.index]
+
+    def rank_houses(self, ranking: np.ndarray) -> pd.Series:
+        """
+        Returns a pd.Series of funda_ids, in order
+        from highest to lowest relevance.
+
+        Parameters:
+        ranking: numpy array that contains relevances
+                 for each image.
+        """
+        ordering = np.argsort(ranking)
+        funda_ids = np.array(self.get_all_ids())
+
+        return pd.Series(funda_ids[ordering]).drop_duplicates(keep="first")
+
     def __len__(self) -> int:
         return len(self.df)
 
-    def filter(self, selected_ids: list[int]) -> FundaPrecomputedEmbeddings:
+    def __getitem__(self, item) -> FundaPrecomputedEmbeddings:
+        return FundaPrecomputedEmbeddings(self.df[item].copy())
+
+    def filter_ids(self, selected_ids: list[int]) -> FundaPrecomputedEmbeddings:
         """
         Filters the embeddings using a list of selected ids
         Returns a new FundaEmbeddings object
         """
-        def is_selected(x: str) -> bool:
-            """extracts the id from the image path and checks if it is in the selected ids"""
-            return int(x.split('/', maxsplit=1)[0]) in selected_ids
-        idxs = self.df.index.filter(is_selected).values
+        idxs = [idx for idx in self.df.index if int(idx.split('/')[0]) in selected_ids]
         df = self.df.loc[idxs].copy()
         return FundaPrecomputedEmbeddings(df)
 
@@ -213,6 +233,7 @@ class FundaDataset:
             df = df.drop(columns='features')
             return df
         dataframe = extract_features(dataframe)
+
 
         def extract_highlights(df):
             for i, house in enumerate(df['highlights']):

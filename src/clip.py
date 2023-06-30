@@ -60,7 +60,8 @@ class ClipModel(nn.Module):
         Computes the visual embeddings for the given image.
         img is a PIL Image
         """
-        # mode=retrieval
+        img = img.resize((224, 224))
+        img = img.convert('RGB')
 
         # convert to tensor (B=1, C=3, width, height), single image
         pixel_values = utils.get_pixel_values_for_model(self.feature_extractor, img)
@@ -70,6 +71,7 @@ class ClipModel(nn.Module):
         # back to numpy (B=1, C=1, hdim) -> (hdim,), single embedding
         visual_embs = self.get_visual_embs(pixel_values)
         visual_emb = visual_embs[0, 0, :].cpu().numpy()
+
         return visual_emb
 
 
@@ -85,13 +87,15 @@ def load_clip_model(gpu=False) -> ClipModel:
     model = model.float()
     if gpu:
         model = model.cuda()
-
+    print("Loaded the model")
     return model
 
 
 def compute_emb_distances(query_embedding: np.ndarray, document_embeddings: np.ndarray) -> np.ndarray:
     """
     Computes the cosine similarity between the query embedding and the document embeddings.
+    The output is in range [-1, 1], where 1 means the embeddings are identical.
+
     :param query_embedding: (embedding_dim,)
     :param document_embeddings: (num_documents, embedding_dim)
     """

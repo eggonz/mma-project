@@ -6,7 +6,7 @@ def test_compute_emb_distances():
     """
     integration test for compute_emb_distances
     """
-    fpe = FundaPrecomputedEmbeddings.from_pickle('../data/clip_embeddings/funda_images_tiny_umap.pkl')
+    fpe = FundaPrecomputedEmbeddings.from_pickle('../data/clip_embeddings/funda_images_tiny.pkl')
     fds = FundaDataset.from_jsonlines('../data/Funda/Funda/ads.jsonlines', '../data/funda_images_tiny')
     model = load_clip_model()
 
