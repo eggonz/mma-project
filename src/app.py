@@ -181,8 +181,8 @@ def create_scatter(data):
         data,
         x="price",
         y="living_area_size",
-        labels={'price': 'price (€)', 'living_area_size': 'area (m^2)'},
-        custom_data=["funda"],
+        labels={'price': 'price (€)', 'living_area_size': 'area (㎡)'},
+        custom_data=["funda"]
         color_discrete_sequence=['#0A9396']
     )
     fig.update_layout(
@@ -445,6 +445,13 @@ table = html.Div(
                         html.H4("Ranked houses", className="card-title"),
                         dash_table.DataTable(
                             data=figures["table"],
+                            columns=[
+                                {"name": "City", "id": "city"},
+                                {"name": "Price", "id": "price"},
+                                {"name": "Area (㎡)", "id": "living_area_size"},
+                                {"name": "Bedrooms", "id": "nr_bedrooms"},
+                                {"name": "Energy Label", "id": "energy_label"}
+                            ],
                             id="housetable",
                             page_current=0,
                             page_size=6,
@@ -884,4 +891,4 @@ def on_hover(geo, umap):
 # #
 
 if __name__ == "__main__":
-    app.run_server(debug=True)
+    app.run_server(debug=False)

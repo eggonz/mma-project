@@ -38,6 +38,7 @@ def get_pandas_query(user_input: str) -> str:
         "The output logical expression contains brackets to group subexpressions. "
         "Any kind of leading and ending quotation marks must be stripped from the output string. "
     )
+    print('GPT INPUT:', user_input)
 
     out = openai.ChatCompletion.create(
         model="gpt-3.5-turbo",
@@ -48,7 +49,9 @@ def get_pandas_query(user_input: str) -> str:
         temperature=0.1,
     )
     answer = out["choices"][0]["message"]["content"]
-    return cleanify(answer)
+    answer = cleanify(answer)
+    print('GPT OUTPUT:', answer)
+    return answer
 
 
 def get_pretty_prompt(filter_str: str) -> str:
@@ -61,7 +64,7 @@ def get_pretty_prompt(filter_str: str) -> str:
         "The output is a brief keywords summary representation of the input. "
         "The user must be able to understand and interpret the output in a single glance. "
         "The output must be minimalistic, and must only contain key values (values of the expression) and logical operators (using words, e.g. OR). "
-        "Symbols like '<' and '[' will be used for value range limits and list attributes. "
+        "The output must include symbols like '<' and '[' for value range limits and list attributes whenever possible, to enhance compactness in the output expression. "
     )
 
     out = openai.ChatCompletion.create(
