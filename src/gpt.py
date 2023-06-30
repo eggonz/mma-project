@@ -38,6 +38,7 @@ def get_pandas_query(user_input: str) -> str:
         "The output logical expression contains brackets to group subexpressions. "
         "Any kind of leading and ending quotation marks must be stripped from the output string. "
     )
+    print('GPT INPUT:', user_input)
 
     out = openai.ChatCompletion.create(
         model="gpt-3.5-turbo",
@@ -48,7 +49,9 @@ def get_pandas_query(user_input: str) -> str:
         temperature=0.1,
     )
     answer = out["choices"][0]["message"]["content"]
-    return cleanify(answer)
+    answer = cleanify(answer)
+    print('GPT OUTPUT:', answer)
+    return answer
 
 
 def get_pretty_prompt(filter_str: str) -> str:
