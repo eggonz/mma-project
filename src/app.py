@@ -19,10 +19,10 @@ import gpt
 from clip import load_clip_model, compute_emb_distances
 from dataset import FundaPrecomputedEmbeddings
 
-ASSETS_PATH = "../assets"
-ADS_PATH = "../data/final.pkl"
-EMBEDDINGS_PATH = "../data/full_embeddings.pkl"
-IMAGES_PATH = "../images/"
+ASSETS_PATH = "./assets"
+ADS_PATH = "./data/final.pkl"
+EMBEDDINGS_PATH = "./data/full_embeddings.pkl"
+IMAGES_PATH = "./images"
 
 # Comment this line if you want to use true GPT (need API key)
 gpt.get_pandas_query = gpt.get_pretty_prompt = lambda x: x
