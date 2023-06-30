@@ -27,8 +27,8 @@ Install requirements:
 pip install -r requirements.txt
 ```
 
-Run code:
+Run code from src folder:
 ```
-python3 src/app.py
+python3 app.py
 ```
 
