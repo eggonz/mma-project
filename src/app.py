@@ -19,10 +19,10 @@ import gpt
 from clip import load_clip_model, compute_emb_distances
 from dataset import FundaPrecomputedEmbeddings
 
-ASSETS_PATH = os.getenv("ASSETS_PATH")
-ADS_PATH = os.getenv("ADS_PATH")
-EMBEDDINGS_PATH = os.getenv("EMBEDDINGS_PATH")
-IMAGES_PATH = os.getenv("IMAGES_PATH")
+ASSETS_PATH = "../assets"
+ADS_PATH = "../data/final.pkl"
+EMBEDDINGS_PATH = "../data/full_embeddings.pkl"
+IMAGES_PATH = "../images/"
 
 # Comment this line if you want to use true GPT (need API key)
 gpt.get_pandas_query = gpt.get_pretty_prompt = lambda x: x
@@ -386,7 +386,7 @@ map = html.Div(
                                     zoomToBoundsOnClick=True,
                                     zoomToBounds=False,
                                     superClusterOptions={"radius": 100, "minPoints": 5},
-                                    options=dict(pointToLayer=ns("pointToLayer")),
+                                    options=dict(pointToLayer=ns("pointToLayer"), style=ns("clickStyle")),
                                     hoverStyle=arrow_function(
                                         dict(weight=5, color="red", dashArray="")
                                     ),

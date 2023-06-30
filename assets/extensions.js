@@ -4,8 +4,7 @@ window.myNamespace = Object.assign({}, window.myNamespace, {
             return L.circleMarker(latlng);  
         },
         clickStyle: function(feature, context){
-            const match = context.props.hideout && context.props.hideout.properties.name === feature.properties.name;
-            if(match) return {weight:5, color:'blue', dashArray:''};
+            return {weight:5, fillColor:'white', dashArray:''};
         }  
     }  
 });
