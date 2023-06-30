@@ -4,7 +4,7 @@ import torch.nn as nn
 from PIL import Image
 from transformers import CLIPVisionModel
 
-from fromage import utils
+import utils
 
 
 class FrozenArgs:
