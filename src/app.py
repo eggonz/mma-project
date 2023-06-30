@@ -25,7 +25,7 @@ EMBEDDINGS_PATH = os.getenv("EMBEDDINGS_PATH")
 IMAGES_PATH = os.getenv("IMAGES_PATH")
 
 # Comment this line if you want to use true GPT (need API key)
-# gpt.get_pandas_query = gpt.get_pretty_prompt = lambda x: x
+gpt.get_pandas_query = gpt.get_pretty_prompt = lambda x: x
 
 # #
 # --------------- Reading in some initial data ----------------
@@ -48,7 +48,7 @@ df["city"] = df["city"].str.lower()
 #     fig.update_layout(margin={"r": 0, "t": 0, "l": 0, "b": 0}, showlegend=False)
 
 #     return fig
-
+colorway=['#001219','#005F73','#0A9396','#94D2BD','#E9D8A6','#EE9B00','#CA6702','#BB3E03','#AE2012', '#9B2226']
 
 def create_table_df(houses):
     houses_ids = houses["funda"].unique()
@@ -114,9 +114,12 @@ def create_umap(houses):
     )
 
     fig.update_layout(
+        plot_bgcolor = '#474747',
+        paper_bgcolor = '#393939',
         margin={"r": 0, "t": 0, "l": 0, "b": 0},
         xaxis={"visible": False, "showticklabels": False},
         yaxis={"visible": False, "showticklabels": False},
+        font_color='#aaa'
     )
     fig.update_traces(hoverinfo="none", hovertemplate=None)
 
@@ -124,9 +127,12 @@ def create_umap(houses):
 
 
 def create_histo(data):
-    fig = px.histogram(data, x="price", nbins=20, labels={'price': 'price (€)'})
+    fig = px.histogram(data, x="price", nbins=20, labels={'price': 'price (€)'}, color_discrete_sequence=['#0A9396'])
     fig.update_layout(
+        plot_bgcolor = '#393939',
+        paper_bgcolor = '#393939',
         margin={"r": 0, "t": 0, "l": 0, "b": 0},
+        font_color = '#aaa'
     )
 
     return fig
@@ -161,9 +167,12 @@ def create_pie(data):
         pie_df,
         names="label",
         values="count",
+        color_discrete_sequence=colorway
     )
     fig.update_layout(
-        margin={"r": 0, "t": 0, "l": 0, "b": 0},
+        paper_bgcolor = '#393939',
+        margin={"r": 10, "t": 0, "l": 0, "b": 0},
+        font_color = '#aaa'
     )
     return fig
 
@@ -174,9 +183,13 @@ def create_scatter(data):
         y="living_area_size",
         labels={'price': 'price (€)', 'living_area_size': 'area (㎡)'},
         custom_data=["funda"]
+        color_discrete_sequence=['#0A9396']
     )
     fig.update_layout(
+        plot_bgcolor = '#393939',
+        paper_bgcolor = '#393939',
         margin={"r": 0, "t": 0, "l": 0, "b": 0},
+        font_color = '#aaa'
     )
 
     return fig
@@ -332,6 +345,11 @@ def get_info(feature=None):
         ]
 
 
+header = html.Div(
+    html.H1("FUNDA EXPLORER"),
+    className='header'
+)
+
 info = html.Div(
     children=get_info(),
     id="info",
@@ -360,7 +378,7 @@ map = html.Div(
                         ),
                         dl.Map(
                             [
-                                dl.TileLayer(),
+                                dl.TileLayer(url='https://tiles.stadiamaps.com/tiles/alidade_smooth_dark/{z}/{x}/{y}{r}.png', maxZoom=20, attribution='&copy; <a href="https://stadiamaps.com/">Stadia Maps</a>, &copy; <a href="https://openmaptiles.org/">OpenMapTiles</a> &copy; <a href="https://openstreetmap.org">OpenStreetMap</a> contributors'),
                                 dl.GeoJSON(
                                     data=dlx.dicts_to_geojson(df.to_dict("records")),
                                     cluster=True,
@@ -382,6 +400,7 @@ map = html.Div(
                                 "height": "50vh",
                                 "margin": "auto",
                                 "display": "block",
+                                "color": "white",
                             },
                             id="mapstate",
                         ),
@@ -398,7 +417,7 @@ umap = html.Div(
             [
                 dbc.CardBody(
                     [
-                        html.H4("Similarity Exploration", className="card-title"),
+                        html.H4("Similar Styled Houses", className="card-title"),
                         html.P(
                             "Space to explore houses with similar styles.",
                             className="card-text",
@@ -436,6 +455,9 @@ table = html.Div(
                             id="housetable",
                             page_current=0,
                             page_size=6,
+                            style_as_list_view=True,
+                            style_cell={"font-family": "Manrope", "textAlign": "left", 'color': '#aaa', "backgroundColor": "#393939", },
+                            style_header={"backgroundColor": "#A49B98", "fontWeight": "700", "color": "white", "border": "1px solid #A49B98"}
                         ),
                     ]
                 )
@@ -446,71 +468,83 @@ table = html.Div(
 
 prompt_holders = html.Div(
     [
-        html.Div(
-            html.Div(
-                [
-                    html.H4("Description prompt:"),
-                    html.P(
-                        "Natural language description of the house requirements that will filter the displayed data.",
-                        className="card-text",
-                    ),
-                    dcc.Input(
-                        id="text_prompt",
-                        type="text",
-                        debounce=True,
-                        placeholder="I want a house in Amsterdam or in Rotterdam",
-                        style={"width": "100%"},
-                    ),
-                    html.Div(id="previous_prompts"),
-                ]
-            ),
-            style={"width": "100%", "marginBottom": "20px"},
-        ),
-        html.Div(
-            html.Div(
-                [
-                    dbc.Button(
-                        "Reset",
-                        id="reset_button",
-                        n_clicks=0,
-                        style={"marginRight": "5px"},
-                    ),
-                    dbc.Button("Undo", id="undo_button", n_clicks=0),
-                ]
-            ),
-            style={"marginTop": "10px"},
-        ),
-        html.Hr(),
-        html.Div(
+        dbc.Card(
             [
-                html.H4("Image for similarity:"),
-                html.P(
-                    "You can provide an image of an example house that is similar to the idea you have in mind. "
-                    "This image will be used to rank the results based on similarity.",
-                    className="card-text",
-                ),
-                dcc.Upload(
-                    id="upload-image",
-                    children=html.Div(
-                        [
-                            "Upload an image ",
-                        ]
-                    ),
-                    style={
-                        "width": "100%",
-                        "height": "70px",
-                        "lineHeight": "60px",
-                        "borderWidth": "1px",
-                        "borderStyle": "dashed",
-                        "borderRadius": "5px",
-                        "textAlign": "center",
-                        "margin": "0px",
-                    },
-                    multiple=False,
-                ),
-                html.Div(id="output-image-upload"),
+                dbc.CardHeader("User Input"),
+                dbc.CardBody([
+                        html.Div(
+                            html.Div(
+                                [
+                                    html.H4("Description prompt:", className="card-title"),
+                                    html.P(
+                                        "Natural language description of the house requirements that will filter the displayed data.",
+                                        className="card-text",
+                                    ),
+                                    dcc.Input(
+                                        id="text_prompt",
+                                        type="text",
+                                        debounce=True,
+                                        placeholder="I want a house in Amsterdam or in Rotterdam",
+                                        style={"width": "100%"},
+                                    ),
+                                    html.Div(id="previous_prompts"),
+                                ]
+                            ),
+                            style={"width": "100%", "marginBottom": "20px"},
+                        ),
+
+                        html.Div(
+                            html.Div(
+                                [   
+                                               
+                                    dbc.Button(
+                                        "Reset",
+                                        id="reset_button",
+                                        n_clicks=0,
+                                        style={"marginRight": "5px"}
+                                         ),
+                                    dbc.Button("Undo", id="undo_button", n_clicks=0),
+                                ]
+                            ),
+                            style={"marginTop": "10px"},
+                        ),
+                        html.Hr(),
+                        html.Div(
+                            [
+                                html.H4("Image for similarity:", className="card-title"),
+                                html.P(
+                                    "You can provide an image of an example house that is similar to the idea you have in mind. "
+                                    "This image will be used to rank the results based on similarity.",
+                                    className="card-text",
+                                ),
+                                dcc.Upload(
+                                    id="upload-image",
+                                    children=html.Div(
+                                        [
+                                            "Upload an image ",
+                                        ]
+                                    ),
+                                    style={
+                                        "width": "100%",
+                                        "height": "70px",
+                                        "lineHeight": "60px",
+                                        "borderWidth": "1px",
+                                        "borderStyle": "dashed",
+                                        "borderRadius": "5px",
+                                        "border-color": "#A49B98",
+                                        "textAlign": "center",
+                                        "margin": "0px",
+                                        "background": "#474747"
+                                    },
+                                    multiple=False,
+                                ),
+                                html.Div(id="output-image-upload"),
+                            ]
+                        ),
+                    ]
+                )
             ]
-        ),
+        )
     ],
     style={"marginLeft": "10px"},
 )
@@ -530,19 +564,22 @@ encoded_image = [
 ]
 
 items = ["data:image/png;base64,{}".format(img.decode()) for key,img in enumerate(encoded_image)]
-image_table_holders = dbc.Card(
-    dbc.CardBody(
-        [
-            html.H4("Images of the selected house",
-                        style={"marginLeft": "10px"}),
-            dbc.Carousel(
-            items = [{"key": key, "src": item} for key,item in enumerate(items)],
-            controls = True,
-            indicators=True,
-            id = 'image_container'
+image_table_holders = html.Div([
+        dbc.Card(
+            dbc.CardBody(
+                [
+                    html.H4("Images of the selected house",
+                                style={"marginLeft": "10px", "marginBottom": "20px"}),
+                    dbc.Carousel(
+                    items = [{"key": key, "src": item} for key,item in enumerate(items)],
+                    controls = True,
+                    indicators=True,
+                    id = 'image_container'
+                    )
+                ]
             )
-        ]
-    )
+        )
+    ], style = {"marginBottom": "20px"}
 )
 
 image_umap = html.Div([image_table_holders, umap])
@@ -587,20 +624,22 @@ mini_plot_holder = dbc.Stack(
                 ]
             )
         ),
-    ]
+    ], style={"margin-right":"1rem"}
 )
 
 app_main = html.Div(
     [
-        dbc.Row(
-            [
-                dbc.Col(prompt_holders, align="start", width=2),
-                dbc.Col(map_meta_data, align="start", width=4),
-                dbc.Col(image_umap, align="start", width=4),
-                dbc.Col(mini_plot_holder, align="start", width=2),
-            ],
-            align="center",
-        )
+        header,
+        html.Div([
+            dbc.Row(
+                    [
+                        dbc.Col(prompt_holders, align="start", width=2),
+                        dbc.Col(map_meta_data, align="start", width=4),
+                        dbc.Col(image_umap, align="start", width=4),
+                        dbc.Col(mini_plot_holder, align="start", width=2),
+                    ],
+                    align="center")
+        ])
     ]
 )
 
