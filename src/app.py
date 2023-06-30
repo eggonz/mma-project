@@ -182,7 +182,7 @@ def create_scatter(data):
         x="price",
         y="living_area_size",
         labels={'price': 'price (€)', 'living_area_size': 'area (㎡)'},
-        custom_data=["funda"]
+        custom_data=["funda"],
         color_discrete_sequence=['#0A9396']
     )
     fig.update_layout(
