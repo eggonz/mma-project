@@ -1,3 +1,6 @@
+# ADAPTED FROM FROMAGE:
+# https://github.com/kohjingyu/fromage/blob/main/fromage/utils.py
+
 from enum import Enum
 import subprocess
 import sys
